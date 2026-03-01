@@ -20,6 +20,12 @@ export default class DiceRollerService {
   private static readonly RANDOM_ORG_BASE_URL = 'https://api.random.org/json-rpc/4/invoke';
   private static readonly MAX_BOUNCE_COUNT = 25;
 
+  // Tapestry game rules: Edge/Burden mechanics
+  private static readonly EDGE_DICE_COUNT = 4;
+  private static readonly EDGE_KEEP_BEST = 3;
+  private static readonly BURDEN_DICE_COUNT = 4;
+  private static readonly BURDEN_KEEP_WORST = 3;
+
   /**
    * Basic dice roll with structured parameters
    * Example: { diceCount: 2, faces: 20, operations: [{operator: '+', value: 2}] }
@@ -73,7 +79,18 @@ export default class DiceRollerService {
       // Validate parameters
       this.validateParams(params);
 
-      const { diceCount, faces, keepBest, keepWorst, operations = [] } = params;
+      let { diceCount, faces, keepBest, keepWorst, edge, burden, operations = [] } = params;
+
+      // Interpret semantic flags if no explicit keep values provided
+      if (!keepBest && !keepWorst) {
+        if (edge) {
+          diceCount = DiceRollerService.EDGE_DICE_COUNT;
+          keepBest = DiceRollerService.EDGE_KEEP_BEST;
+        } else if (burden) {
+          diceCount = DiceRollerService.BURDEN_DICE_COUNT;
+          keepWorst = DiceRollerService.BURDEN_KEEP_WORST;
+        }
+      }
 
       // Roll all dice
       const allRolls: number[] = [];
@@ -95,7 +112,7 @@ export default class DiceRollerService {
       total = this.applyOperations(total, operations);
 
       // Build expression string for reference
-      const expression = this.buildExpression(diceCount, faces, keepBest, keepWorst, operations);
+      const expression = this.buildExpression(diceCount, faces, keepBest, keepWorst, operations, edge, burden);
 
       return {
         allRolls,
@@ -186,8 +203,8 @@ export default class DiceRollerService {
    * Simulates dice bouncing for more realistic randomness
    */
   private simulatedDiceRoll(min: number, max: number): number {
-    // Generate random number of bounces (1-25)
-    const times = Math.floor(Math.random() * DiceRollerService.MAX_BOUNCE_COUNT) + 1;
+    // Generate random number of bounces (5-25)
+    const times = Math.floor(Math.random() * DiceRollerService.MAX_BOUNCE_COUNT) + 5; // Minimum 5 bounces for better randomness
     let roll = 0;
 
     // Simulate multiple bounces
@@ -207,32 +224,48 @@ export default class DiceRollerService {
    * Validate dice roll parameters
    */
   private validateParams(params: DiceRollParams): void {
-    if (!params.diceCount || params.diceCount < 1) {
-      throw new Error('diceCount must be at least 1');
+    // Validate edge/burden semantic flags
+    if (params.edge && params.burden) {
+      throw new Error('Cannot specify both edge and burden');
+    }
+
+    // Cannot mix semantic flags with explicit keep values
+    if ((params.edge || params.burden) && (params.keepBest || params.keepWorst)) {
+      throw new Error('Cannot specify edge/burden with explicit keepBest/keepWorst');
+    }
+
+    // Basic dice validation (skip diceCount check if using semantic flags)
+    if (!params.edge && !params.burden) {
+      if (!params.diceCount || params.diceCount < 1) {
+        throw new Error('diceCount must be at least 1');
+      }
     }
 
     if (!params.faces || params.faces < 2) {
       throw new Error('faces must be at least 2');
     }
 
-    if (params.keepBest && params.keepWorst) {
-      throw new Error('Cannot specify both keepBest and keepWorst');
-    }
+    // Validate explicit keep values (only if not using semantic flags)
+    if (!params.edge && !params.burden) {
+      if (params.keepBest && params.keepWorst) {
+        throw new Error('Cannot specify both keepBest and keepWorst');
+      }
 
-    if (params.keepBest && params.keepBest > params.diceCount) {
-      throw new Error('keepBest cannot be greater than diceCount');
-    }
+      if (params.keepBest && params.keepBest > params.diceCount) {
+        throw new Error('keepBest cannot be greater than diceCount');
+      }
 
-    if (params.keepWorst && params.keepWorst > params.diceCount) {
-      throw new Error('keepWorst cannot be greater than diceCount');
-    }
+      if (params.keepWorst && params.keepWorst > params.diceCount) {
+        throw new Error('keepWorst cannot be greater than diceCount');
+      }
 
-    if (params.keepBest && params.keepBest < 1) {
-      throw new Error('keepBest must be at least 1');
-    }
+      if (params.keepBest && params.keepBest < 1) {
+        throw new Error('keepBest must be at least 1');
+      }
 
-    if (params.keepWorst && params.keepWorst < 1) {
-      throw new Error('keepWorst must be at least 1');
+      if (params.keepWorst && params.keepWorst < 1) {
+        throw new Error('keepWorst must be at least 1');
+      }
     }
   }
 
@@ -335,13 +368,21 @@ export default class DiceRollerService {
 
   /**
    * Build expression string for reference
+   * Supports semantic notation: 4d6e (edge), 4d6b (burden)
    */
-  private buildExpression(diceCount: number, faces: number, keepBest?: number, keepWorst?: number, operations: DiceOperation[] = []): string {
+  private buildExpression(diceCount: number, faces: number, keepBest?: number, keepWorst?: number, operations: DiceOperation[] = [], edge?: boolean, burden?: boolean): string {
     let expr = `${diceCount}d${faces}`;
 
-    if (keepBest) {
+    // Use semantic notation for edge/burden
+    if (edge) {
+      expr += 'e';
+    } else if (burden) {
+      expr += 'b';
+    } else if (keepBest) {
+      // Explicit numeric notation
       expr += `b${keepBest}`;
     } else if (keepWorst) {
+      // Explicit numeric notation
       expr += `w${keepWorst}`;
     }
 
