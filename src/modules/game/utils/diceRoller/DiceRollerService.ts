@@ -124,6 +124,7 @@ export default class DiceRollerService {
     } catch (error: any) {
       console.error('Error in rollAdvanced():', error.message);
       return {
+        error: error.message,
         allRolls: [],
         keptRolls: [],
         total: 0,

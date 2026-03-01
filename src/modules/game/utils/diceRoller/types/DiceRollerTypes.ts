@@ -51,6 +51,7 @@ export interface BasicRollResult {
 }
 
 export interface AdvancedRollResult {
+  error?: string; // Populated if an error occurred during rolling
   allRolls: number[];
   keptRolls: number[];
   total: number;
