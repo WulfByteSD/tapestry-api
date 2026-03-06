@@ -58,7 +58,7 @@ export interface InventoryItem {
     settingKey?: string;
     version?: number;
   };
-
+  stackable?: boolean;
   // transitional / legacy
   itemKey?: string;
   sourceId?: string;
@@ -231,7 +231,7 @@ const InventoryOverridesSchema = new mongoose.Schema(
 const InventoryItemSchema = new mongoose.Schema(
   {
     instanceId: { type: String, trim: true },
-
+    stackable: { type: Boolean, default: false },
     definition: { type: InventoryDefinitionRefSchema, default: null },
 
     itemKey: { type: String, trim: true },
