@@ -69,15 +69,7 @@ export interface InventoryItem {
   tags?: string[];
   notes?: string;
 
-  category?:
-    | 'weapon'
-    | 'armor'
-    | 'gear'
-    | 'consumable'
-    | 'tool'
-    | 'currency'
-    | 'quest'
-    | 'other';
+  category?: 'weapon' | 'armor' | 'gear' | 'consumable' | 'tool' | 'currency' | 'quest' | 'other';
 
   equipped?: boolean;
   slot?: string;
@@ -92,28 +84,39 @@ export interface InventoryItem {
     tags?: string[];
   };
 }
+
+export type CharacterProfile = {
+  title?: string;
+  bio?: string; 
+  race?: string;
+  nationality?: string;
+  religion?: string;
+  sex?: string; 
+  height?: string;
+  weight?: string;
+  eyes?: string;
+  hair?: string;
+  ethnicity?: string;
+  age?: number | string; 
+  extra?: Record<string, string>;
+};
+
 export interface CharacterType extends mongoose.Document {
-  player: mongoose.Schema.Types.ObjectId; // ref Player (profile)
-  campaign: mongoose.Schema.Types.ObjectId | null; // ref to active Campaign (optional)
+  player: string;
+  campaign?: string | null;
   name: string;
   avatarUrl?: string | null;
-  forkedFrom?: mongoose.Schema.Types.ObjectId; // optional reference to original sheet if this is a forked copy
   status: SheetStatus;
   tags: string[];
 
-  // Optional campaign / setting context (not required for MVP)
-  settingKey?: string; // e.g. "woven-realms"
-  toneModules: string[]; // e.g. ["dragon-dial"]
-  rulesetVersion: number; // bump if you change sheet structure
+  settingKey?: string;
+  toneModules?: string[];
+  rulesetVersion?: number;
 
   sheet: {
-    // Optional: “archetype/class” key from content library later
-    archetypeKey?: string; // e.g. "warden"
-
-    // Weave milestone / level-ish number (defaults 1)
+    archetypeKey?: string;
     weaveLevel: number;
-
-    // Fixed aspects (canonical keys)
+    profile?: CharacterProfile;
     aspects: {
       might: {
         strength: number;
@@ -135,34 +138,26 @@ export interface CharacterType extends mongoose.Document {
       extra?: Record<string, number>; // stored as Map in Mongo
     };
 
-    // Dynamic values (setting/tone dependent)
-    skills: Record<string, number>; // stored as Map in Mongo
-
-    // Features/knacks: store keys (official or homebrew). If you truly need freeform,
-    // generate a hb:* key on the fly and treat it as “homebrew definition pending”.
+    skills: Record<string, number>;
     features: string[];
-
     resources: {
       hp: ResourceTrack;
       threads: ResourceTrack;
-      // optional future pools (only use if/when your rules need them)
       resolve?: ResourceTrack;
-      other: Record<string, number>; // stored as Map in Mongo
+      other: Record<string, number>;
     };
-
     conditions: ConditionInstance[];
     inventory: InventoryItem[];
-
     notes?: string;
   };
 
+  forkedFrom?: string | null;
+  createdAt: string;
+  updatedAt: string;
   meta: {
     lastPlayedAt?: Date | null;
     deletedAt?: Date | null; // soft delete (optional)
   };
-
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 // ----- sub-schemas -----
@@ -278,7 +273,21 @@ const CharacterSchema = new mongoose.Schema(
     sheet: {
       archetypeKey: { type: String, trim: true },
       weaveLevel: { type: Number, default: 1, min: 1 },
-
+      profile: {
+        title: { type: String, trim: true },
+        bio: { type: String, trim: true },
+        race: { type: String, trim: true },
+        nationality: { type: String, trim: true },
+        religion: { type: String, trim: true },
+        sex: { type: String, trim: true },
+        height: { type: String, trim: true },
+        weight: { type: String, trim: true },
+        eyes: { type: String, trim: true },
+        hair: { type: String, trim: true },
+        ethnicity: { type: String, trim: true },
+        age: { type: Number, default: null },
+        extra: { type: Map, of: String, default: {} },
+      },
       aspects: {
         might: {
           strength: { type: Number, default: 0 },
