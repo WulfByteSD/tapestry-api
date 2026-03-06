@@ -3,6 +3,7 @@ import express from 'express';
 import characterRoutes from '../characters/routes/index';
 import campaignRoutes from '../campaigns/routes/index';
 import rollRoutes from '../characters/routes/rollRoutes';
+import contentRoutes from '../content/route/index';
 
 const router = express.Router();
 
@@ -10,6 +11,7 @@ const router = express.Router();
 router.use('/characters', characterRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/rolls', rollRoutes);
+router.use("/content", contentRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

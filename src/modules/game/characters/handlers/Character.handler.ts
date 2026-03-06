@@ -58,7 +58,6 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
   }
 
   protected async beforeUpdate(id: string, data: any): Promise<void> {
-    console.log('Before update data:', data);
     // Prevent changing the player owner
     if (data.player) {
       throw new ErrorUtil('Cannot change character owner', 400);

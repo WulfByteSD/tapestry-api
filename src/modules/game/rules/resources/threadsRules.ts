@@ -14,7 +14,7 @@ import { CharacterRuleData, THREADS_MIN, THREADS_MAX } from '../types/RuleTypes'
  * @returns Clamped value within valid range
  */
 function clampToThreadsRange(value: number): number {
-  console.log(`Clamping threads value: ${value} to range ${THREADS_MIN}-${THREADS_MAX}`);
+  // console.log(`Clamping threads value: ${value} to range ${THREADS_MIN}-${THREADS_MAX}`);
   return Math.max(THREADS_MIN, Math.min(THREADS_MAX, value));
 }
 
@@ -37,7 +37,6 @@ export function enforceThreadsRange(character: CharacterRuleData): void {
     };
     return;
   }
-  console.log('Before enforcing threads rules:', character.threads);
 
   // Enforce maximum threads cap
   character.threads.max = clampToThreadsRange(Math.max(character.threads.max, 3) ?? THREADS_MAX);

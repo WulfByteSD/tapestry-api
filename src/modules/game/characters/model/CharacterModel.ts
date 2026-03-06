@@ -35,19 +35,63 @@ export interface ConditionInstance {
   notes?: string;
 }
 
-export interface InventoryItem {
-  // content-linked (preferred later)
-  itemKey?: string; // e.g. "wr:longbow", "core:light-weapon", "hb:my-campaign:revolver"
-  sourceId?: string; // e.g. "core", "woven-realms", "hb:<campaignId>"
+export interface AttackProfile {
+  key: string;
+  name: string;
+  attackKind?: 'melee' | 'ranged' | 'spell' | 'special';
+  defaultAspect?: string;
+  allowedSkillKeys?: string[];
+  modifier?: number;
+  harm?: number | string;
+  rangeLabel?: string;
+  tags?: string[];
+  notes?: string;
+}
 
-  // freeform fallback (setting-agnostic safety valve)
+export interface InventoryItem {
+  instanceId?: string;
+
+  // canonical content link
+  definition?: {
+    itemKey: string;
+    sourceId?: string;
+    settingKey?: string;
+    version?: number;
+  };
+
+  // transitional / legacy
+  itemKey?: string;
+  sourceId?: string;
+
   name?: string;
 
   qty: number;
   tags?: string[];
   notes?: string;
-}
 
+  category?:
+    | 'weapon'
+    | 'armor'
+    | 'gear'
+    | 'consumable'
+    | 'tool'
+    | 'currency'
+    | 'quest'
+    | 'other';
+
+  equipped?: boolean;
+  slot?: string;
+
+  attackProfiles?: AttackProfile[];
+  selectedAttackProfileKey?: string;
+
+  overrides?: {
+    displayName?: string;
+    modifier?: number;
+    harm?: number | string;
+    tags?: string[];
+  };
+}
 export interface CharacterType extends mongoose.Document {
   player: mongoose.Schema.Types.ObjectId; // ref Player (profile)
   campaign: mongoose.Schema.Types.ObjectId | null; // ref to active Campaign (optional)
@@ -144,8 +188,52 @@ const ConditionInstanceSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const AttackProfileSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true, trim: true },
+    name: { type: String, required: true, trim: true },
+    attackKind: {
+      type: String,
+      enum: ['melee', 'ranged', 'spell', 'special'],
+      default: 'melee',
+    },
+    defaultAspect: { type: String, trim: true, default: null },
+    allowedSkillKeys: { type: [String], default: [] },
+    modifier: { type: Number, default: 0 },
+    harm: { type: mongoose.Schema.Types.Mixed, default: null },
+    rangeLabel: { type: String, trim: true, default: null },
+    tags: { type: [String], default: [] },
+    notes: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
+const InventoryDefinitionRefSchema = new mongoose.Schema(
+  {
+    itemKey: { type: String, trim: true, required: true },
+    sourceId: { type: String, trim: true, default: null },
+    settingKey: { type: String, trim: true, default: null },
+    version: { type: Number, default: 1 },
+  },
+  { _id: false }
+);
+
+const InventoryOverridesSchema = new mongoose.Schema(
+  {
+    displayName: { type: String, trim: true, default: null },
+    modifier: { type: Number, default: null },
+    harm: { type: mongoose.Schema.Types.Mixed, default: null },
+    tags: { type: [String], default: [] },
+  },
+  { _id: false }
+);
+
 const InventoryItemSchema = new mongoose.Schema(
   {
+    instanceId: { type: String, trim: true },
+
+    definition: { type: InventoryDefinitionRefSchema, default: null },
+
     itemKey: { type: String, trim: true },
     sourceId: { type: String, trim: true },
 
@@ -153,7 +241,20 @@ const InventoryItemSchema = new mongoose.Schema(
 
     qty: { type: Number, default: 1, min: 0 },
     tags: { type: [String], default: [] },
-    notes: { type: String },
+    notes: { type: String, default: '' },
+
+    category: {
+      type: String,
+      enum: ['weapon', 'armor', 'gear', 'consumable', 'tool', 'currency', 'quest', 'other'],
+      default: 'other',
+    },
+    equipped: { type: Boolean, default: false },
+    slot: { type: String, trim: true, default: null },
+
+    attackProfiles: { type: [AttackProfileSchema], default: [] },
+    selectedAttackProfileKey: { type: String, trim: true, default: null },
+
+    overrides: { type: InventoryOverridesSchema, default: null },
   },
   { _id: false }
 );

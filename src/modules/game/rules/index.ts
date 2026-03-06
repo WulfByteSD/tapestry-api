@@ -60,7 +60,7 @@ export function applyCharacterRules(characterData: CharacterRuleData): Character
   // Step 3: Enforce threads range
   // - Clamp threads.current, threads.max, threads.temp to 0-5
   enforceThreadsRange(characterData);
-  console.log('Applied threads rules:', characterData);
+  // console.log('Applied threads rules:', characterData);
   return characterData;
 }
 
