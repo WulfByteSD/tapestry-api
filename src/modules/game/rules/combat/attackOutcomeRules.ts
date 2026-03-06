@@ -21,14 +21,14 @@ export function resolveAttackOutcome(total: number, targetNumber: number): Attac
   if (margin <= -3) {
     return { targetNumber, margin, outcome: 'miss' };
   }
-  // if the margin is -2, or -1, its a weak hit
-  if (margin <= -2) {
+  // if the margin is -2 or -1, its a weak hit
+  if (margin < 0) {
     return { targetNumber, margin, outcome: 'weak_hit' };
   }
-  // if its greater than +2 of the TN, its a strong hit
+  // if its +3 or more above the TN, its a strong hit
   if (margin >= 3) {
     return { targetNumber, margin, outcome: 'strong_hit' };
   }
-  // otherwise its a normal hit
+  // otherwise its a normal hit (margin 0, +1, or +2)
   return { targetNumber, margin, outcome: 'hit' };
 }
