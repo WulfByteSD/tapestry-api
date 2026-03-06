@@ -69,3 +69,4 @@ export * from './types/RuleTypes';
 export { validateAspectRanges, getAspectRangeDescription } from './attributes/aspectRules';
 export { calculateMaxHP, adjustCurrentHP, applyHPRules } from './resources/hpRules';
 export { enforceThreadsRange } from './resources/threadsRules';
+export { resolveAttackOutcome } from './combat/attackOutcomeRules';

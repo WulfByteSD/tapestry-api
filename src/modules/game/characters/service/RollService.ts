@@ -72,40 +72,9 @@ export default class RollService extends CRUDService {
       return res.status(403).json({ error: 'Player profile not found' });
     }
 
-    // Extract dice parameters
-    const { characterId, edge, burden, diceCount, faces, keepBest, keepWorst, operations, rollType, context, aspectUsed } = req.body;
+    // inside createRoll:
+    const { characterId, edge, burden, diceCount, faces, keepBest, keepWorst, operations, rollType, context, aspectUsed, attack } = req.body;
 
-    // // Validation: Cannot specify both edge and burden
-    // if (edge && burden) {
-    //   return res.status(400).json({ error: 'Cannot specify both edge and burden' });
-    // }
-
-    // // Validation: Cannot mix semantic flags with explicit keep values
-    // if ((edge || burden) && (keepBest || keepWorst)) {
-    //   return res.status(400).json({ error: 'Cannot specify edge/burden with explicit keepBest/keepWorst' });
-    // }
-
-    // // Validation: faces is always required
-    // if (!faces) {
-    //   return res.status(400).json({ error: 'faces is required' });
-    // }
-
-    // if (typeof faces !== 'number' || faces < 2) {
-    //   return res.status(400).json({ error: 'faces must be a number >= 2' });
-    // }
-
-    // // Validation: diceCount required for non-edge/burden rolls
-    // if (!edge && !burden) {
-    //   if (!diceCount) {
-    //     return res.status(400).json({ error: 'diceCount is required (unless using edge/burden)' });
-    //   }
-
-    //   if (typeof diceCount !== 'number' || diceCount < 1) {
-    //     return res.status(400).json({ error: 'diceCount must be a number >= 1' });
-    //   }
-    // }
-
-    // Build roll data
     const rollData: CreateRollData = {
       characterId: characterId || null,
       playerId: playerProfile._id.toString(),
@@ -119,6 +88,7 @@ export default class RollService extends CRUDService {
       rollType: rollType || 'custom',
       context,
       aspectUsed,
+      attack,
     };
 
     try {
