@@ -8,8 +8,7 @@ export const buildMongoURI = (): string => {
   const user = process.env.MONGO_USER;
   const pass = process.env.MONGO_PASS;
   const cluster = process.env.CLUSTER_STRING;
-  const dbName = process.env.MONGO_DBNAME;
-  console.log(`user: ${user} | pass: ${pass} | cluster: ${cluster} | dbName: ${dbName}`);
+  const dbName = process.env.MONGO_DBNAME; 
   // Use provided credentials or fallback to local development
   if (user && pass && cluster) {
     return `mongodb+srv://${user}:${pass}@${cluster}/?retryWrites=true&w=majority&appName=Cluster0`;
