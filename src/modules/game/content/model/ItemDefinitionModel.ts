@@ -30,6 +30,7 @@ export interface ItemDefinitionType extends mongoose.Document {
   stackable: boolean;
   notes?: string;
   attackProfiles: AttackProfile[];
+  protection: number; // new field for armor items
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,6 +72,7 @@ const ItemDefinitionSchema = new mongoose.Schema(
       default: 'published',
       index: true,
     },
+    protection: { type: Number, default: 0 }, // new field for armor items
     tags: { type: [String], default: [] },
     equippable: { type: Boolean, default: false },
     slot: { type: String, trim: true, default: null },
