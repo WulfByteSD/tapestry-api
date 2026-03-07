@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
-import asyncHandler from "../../../../middleware/asyncHandler";
-import error from "../../../../middleware/error";
-import { CRUDService } from "../../../../utils/baseCRUD";
-import ItemDefinitionHandler from "../handlers/ItemDefinition.handler";
+import { Request, Response } from 'express';
+import asyncHandler from '../../../../middleware/asyncHandler';
+import error from '../../../../middleware/error';
+import { CRUDService } from '../../../../utils/baseCRUD';
+import ItemDefinitionHandler from '../handlers/ItemDefinition.handler';
 
 export default class ItemsService extends CRUDService {
   private itemHandler: ItemDefinitionHandler;
@@ -10,9 +10,7 @@ export default class ItemsService extends CRUDService {
   constructor() {
     super(ItemDefinitionHandler);
     this.itemHandler = this.handler as ItemDefinitionHandler;
-
-    this.queryKeys = ["key", "name", "notes", "tags", "category", "settingKey"];
-
+    this.queryKeys = ['key', 'name', 'notes', 'tags', 'category', 'settingKeys'];
     this.requiresAuth = {
       getResources: true,
       getResource: true,
@@ -27,7 +25,7 @@ export default class ItemsService extends CRUDService {
       if (!result) {
         return res.status(404).json({
           success: false,
-          message: "Item not found",
+          message: 'Item not found',
         });
       }
 
@@ -44,8 +42,7 @@ export default class ItemsService extends CRUDService {
   getItemsForSetting = asyncHandler(async (req: Request, res: Response) => {
     try {
       const { settingKey } = req.params;
-      const category =
-        typeof req.query.category === "string" ? req.query.category : undefined;
+      const category = typeof req.query.category === 'string' ? req.query.category : undefined;
 
       const result = await this.itemHandler.fetchBySettingKey(settingKey, category);
 

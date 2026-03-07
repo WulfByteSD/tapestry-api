@@ -15,7 +15,7 @@ export default class ItemDefinitionHandler extends CRUDHandler<ItemDefinitionTyp
 
   async fetchBySettingKey(settingKey: string, category?: string) {
     const filters: Record<string, any> = {
-      settingKey,
+      settingKeys: settingKey,
       status: 'published',
     };
 

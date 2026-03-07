@@ -19,18 +19,18 @@ export interface AttackProfile {
 }
 
 export interface ItemDefinitionType extends mongoose.Document {
-  settingKey: string;
   key: string;
   name: string;
   category: InventoryCategory;
-  status: ContentStatus;
+  status: ContentStatus; 
+  settingKeys: string[]; 
   tags: string[];
   equippable: boolean;
   slot?: string;
   stackable: boolean;
+  protection?: number;
   notes?: string;
-  attackProfiles: AttackProfile[];
-  protection: number; // new field for armor items
+  attackProfiles: AttackProfile[]; 
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,26 +57,31 @@ const AttackProfileSchema = new mongoose.Schema(
 
 const ItemDefinitionSchema = new mongoose.Schema(
   {
-    settingKey: { type: String, required: true, trim: true, index: true },
-    key: { type: String, required: true, trim: true },
-    name: { type: String, required: true, trim: true },
+    key: { type: String, required: true, trim: true, unique: true },
+    name: { type: String, required: true, trim: true }, 
     category: {
       type: String,
       enum: ['weapon', 'armor', 'gear', 'consumable', 'tool', 'currency', 'quest', 'other'],
       required: true,
       index: true,
-    },
+    }, 
     status: {
       type: String,
       enum: ['draft', 'published', 'archived'],
       default: 'published',
       index: true,
-    },
-    protection: { type: Number, default: 0 }, // new field for armor items
+    }, 
+    settingKeys: {
+      type: [String],
+      required: true,
+      default: [],
+      index: true,
+    }, 
     tags: { type: [String], default: [] },
     equippable: { type: Boolean, default: false },
     slot: { type: String, trim: true, default: null },
     stackable: { type: Boolean, default: false },
+    protection: { type: Number, default: 0 },
     notes: { type: String, default: '', trim: true },
     attackProfiles: { type: [AttackProfileSchema], default: [] },
   },
@@ -87,7 +92,7 @@ const ItemDefinitionSchema = new mongoose.Schema(
 );
 
 ItemDefinitionSchema.index({ key: 1 }, { unique: true });
-ItemDefinitionSchema.index({ settingKey: 1, category: 1, status: 1 });
+ItemDefinitionSchema.index({ settingKeys: 1, category: 1, status: 1 });
 ItemDefinitionSchema.index({ name: 'text', key: 'text', tags: 'text' });
 
 export default mongoose.model<ItemDefinitionType>('ItemDefinition', ItemDefinitionSchema);
