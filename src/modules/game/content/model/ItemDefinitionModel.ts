@@ -4,6 +4,7 @@ export type ContentStatus = 'draft' | 'published' | 'archived';
 export type InventoryCategory = 'weapon' | 'armor' | 'gear' | 'consumable' | 'tool' | 'currency' | 'quest' | 'other';
 
 export type AttackKind = 'melee' | 'ranged' | 'spell' | 'special';
+export type ItemScope = 'shared' | 'setting';
 
 export interface AttackProfile {
   key: string;
@@ -22,15 +23,15 @@ export interface ItemDefinitionType extends mongoose.Document {
   key: string;
   name: string;
   category: InventoryCategory;
-  status: ContentStatus; 
-  settingKeys: string[]; 
+  status: ContentStatus;
+  settingKeys: string[];
   tags: string[];
   equippable: boolean;
   slot?: string;
   stackable: boolean;
   protection?: number;
   notes?: string;
-  attackProfiles: AttackProfile[]; 
+  attackProfiles: AttackProfile[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,25 +59,25 @@ const AttackProfileSchema = new mongoose.Schema(
 const ItemDefinitionSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, trim: true, unique: true },
-    name: { type: String, required: true, trim: true }, 
+    name: { type: String, required: true, trim: true },
     category: {
       type: String,
       enum: ['weapon', 'armor', 'gear', 'consumable', 'tool', 'currency', 'quest', 'other'],
       required: true,
       index: true,
-    }, 
+    },
     status: {
       type: String,
       enum: ['draft', 'published', 'archived'],
       default: 'published',
       index: true,
-    }, 
+    },
     settingKeys: {
       type: [String],
       required: true,
       default: [],
       index: true,
-    }, 
+    },
     tags: { type: [String], default: [] },
     equippable: { type: Boolean, default: false },
     slot: { type: String, trim: true, default: null },

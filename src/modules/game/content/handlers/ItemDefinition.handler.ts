@@ -1,13 +1,42 @@
+import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import { CRUDHandler } from '../../../../utils/baseCRUD';
-import ItemDefinitionModel, { ItemDefinitionType } from '../model/ItemDefinitionModel';
+import ItemDefinitionModel, { ItemDefinitionType, ItemScope } from '../model/ItemDefinitionModel';
+import normalizeCreateInput from '../util/normalizeCreateInput';
+
+export type ItemCreateInput = {
+  key?: string;
+  name?: string;
+  scope?: ItemScope;
+  settingKeys?: string[];
+
+  category?: string;
+  status?: string;
+  tags?: string[];
+  equippable?: boolean;
+  slot?: string | null;
+  stackable?: boolean;
+  notes?: string;
+  attackProfiles?: any[];
+  protection?: number;
+};
 
 export default class ItemDefinitionHandler extends CRUDHandler<ItemDefinitionType> {
   constructor() {
     super(ItemDefinitionModel);
   }
+  async create(data: ItemCreateInput): Promise<ItemDefinitionType> {
+    const normalized = normalizeCreateInput(data);
+
+    const existing = await this.Schema.findOne({ key: normalized.key }).lean();
+    if (existing) {
+      throw new ErrorUtil(`Item key "${normalized.key}" already exists`, 409);
+    }
+
+    return await super.create(normalized);
+  }
 
   async fetchByKey(key: string) {
-    return await ItemDefinitionModel.findOne({
+    return await this.Schema.findOne({
       key,
       status: { $ne: 'archived' },
     }).lean();
@@ -23,6 +52,6 @@ export default class ItemDefinitionHandler extends CRUDHandler<ItemDefinitionTyp
       filters.category = category;
     }
 
-    return await ItemDefinitionModel.find(filters).sort({ category: 1, name: 1 }).lean();
+    return await this.Schema.find(filters).sort({ category: 1, name: 1 }).lean();
   }
 }
