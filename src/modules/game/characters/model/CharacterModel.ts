@@ -35,6 +35,19 @@ export interface ConditionInstance {
   notes?: string;
 }
 
+export type NoteCardKind = 'general' | 'npc' | 'quest' | 'location' | 'faction' | 'clue';
+
+export interface NoteCard {
+  id: string;
+  title: string;
+  body: string;
+  kind: NoteCardKind;
+  pinned?: boolean;
+  tags?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface AttackProfile {
   key: string;
   name: string;
@@ -87,17 +100,17 @@ export interface InventoryItem {
 
 export type CharacterProfile = {
   title?: string;
-  bio?: string; 
+  bio?: string;
   race?: string;
   nationality?: string;
   religion?: string;
-  sex?: string; 
+  sex?: string;
   height?: string;
   weight?: string;
   eyes?: string;
   hair?: string;
   ethnicity?: string;
-  age?: number | string; 
+  age?: number | string;
   extra?: Record<string, string>;
 };
 
@@ -148,7 +161,7 @@ export interface CharacterType extends mongoose.Document {
     };
     conditions: ConditionInstance[];
     inventory: InventoryItem[];
-    notes?: string;
+    noteCards: NoteCard[];
   };
 
   forkedFrom?: string | null;
@@ -182,7 +195,23 @@ const ConditionInstanceSchema = new mongoose.Schema(
   },
   { _id: false }
 );
-
+const NoteCardSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true, trim: true },
+    title: { type: String, required: true, trim: true, default: 'Untitled Note' },
+    body: { type: String, default: '' },
+    kind: {
+      type: String,
+      enum: ['general', 'npc', 'quest', 'location', 'faction', 'clue'],
+      default: 'general',
+    },
+    pinned: { type: Boolean, default: false },
+    tags: { type: [String], default: [] },
+    createdAt: { type: Date, default: () => new Date() },
+    updatedAt: { type: Date, default: () => new Date() },
+  },
+  { _id: false }
+);
 const AttackProfileSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, trim: true },
@@ -324,7 +353,7 @@ const CharacterSchema = new mongoose.Schema(
       conditions: { type: [ConditionInstanceSchema], default: [] },
       inventory: { type: [InventoryItemSchema], default: [] },
 
-      notes: { type: String, default: '' },
+      noteCards: { type: [NoteCardSchema], default: [] },
     },
 
     meta: {
