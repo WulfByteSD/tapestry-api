@@ -1,6 +1,7 @@
 import express from 'express';
 import settingsRoutes from './settings';
 import itemsRoutes from './items';
+import skillsRoutes from './skills';
 
 const router = express.Router();
 
@@ -13,5 +14,6 @@ router.get('/health', (req, res) => {
 
 router.use('/settings', settingsRoutes);
 router.use('/items', itemsRoutes);
+router.use('/skills', skillsRoutes);
 
 export default router;

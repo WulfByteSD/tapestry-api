@@ -58,7 +58,7 @@ const AttackProfileSchema = new mongoose.Schema(
 
 const ItemDefinitionSchema = new mongoose.Schema(
   {
-    key: { type: String, required: true, trim: true, unique: true },
+    key: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     category: {
       type: String,

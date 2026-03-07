@@ -10,7 +10,8 @@
     "dev": "ts-node-dev src/server.ts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "seed:game-content": "ts-node src/scripts/seedGameContent.ts"
+    "seed:game-content": "ts-node src/scripts/seedGameContent.ts",
+    "seed:skills": "ts-node src/scripts/seedSkills.ts"
   },
   "author": "Austin Howard",
   "license": "ISC",

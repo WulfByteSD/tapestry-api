@@ -3,6 +3,8 @@ import { CRUDHandler } from '../../../../utils/baseCRUD';
 import ItemDefinitionModel, { ItemDefinitionType, ItemScope } from '../model/ItemDefinitionModel';
 import normalizeCreateInput from '../util/normalizeCreateInput';
 
+const SHARED_SETTING_KEY = 'shared';
+
 export type ItemCreateInput = {
   key?: string;
   name?: string;
@@ -44,9 +46,11 @@ export default class ItemDefinitionHandler extends CRUDHandler<ItemDefinitionTyp
 
   async fetchBySettingKey(settingKey: string, category?: string) {
     const filters: Record<string, any> = {
-      settingKeys: settingKey,
+      settingKeys: { $in: [settingKey] },
       status: 'published',
     };
+
+    console.log(filters);
 
     if (category) {
       filters.category = category;
