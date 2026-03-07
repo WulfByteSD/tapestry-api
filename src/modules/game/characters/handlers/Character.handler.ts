@@ -4,6 +4,7 @@ import { CRUDHandler, PaginationOptions } from '../../../../utils/baseCRUD';
 import CharacterModel, { CharacterType } from '../model/CharacterModel';
 import { eventBus } from '../../../../lib/eventBus';
 import { applyCharacterRules } from '../../rules';
+import calculateCharacterProtection from '../../rules/combat/calculateCharacterProtection';
 
 export class CharacterHandler extends CRUDHandler<CharacterType> {
   constructor() {
@@ -106,6 +107,9 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
 
     // Save the document (single DB write)
     const updated = await character.save();
+
+    console.log(`Character ${updated._id} updated successfully`);
+    console.log('Updated character data:', updated.sheet.inventory);
     await this.afterUpdate(updated);
 
     return updated;
@@ -278,6 +282,76 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     } catch (error) {
       if (error instanceof ErrorUtil) throw error;
       throw new ErrorUtil('Failed to fetch character', 500);
+    }
+  }
+
+  /**
+   * Apply harm/damage to a character
+   * Calculates protection, applies damage to temp HP first (if requested), then current HP
+   */
+  async applyHarm(
+    characterId: string,
+    incomingHarm: number,
+    applyToTemp: boolean = true
+  ): Promise<{
+    incomingHarm: number;
+    protection: number;
+    appliedHarm: number;
+    hpBefore: number;
+    hpAfter: number;
+    tempBefore: number;
+    tempAfter: number;
+  }> {
+    try {
+      const character = await this.Schema.findById(characterId);
+      if (!character) {
+        throw new ErrorUtil('Character not found', 404);
+      }
+
+      // Calculate total protection using the existing combat rule
+      const totalProtection = calculateCharacterProtection(character);
+
+      // Compute reduced harm after protection
+      const reducedHarm = Math.max(0, incomingHarm - totalProtection);
+
+      // Store initial values for response
+      const hpBefore = character.sheet.resources.hp.current;
+      const tempBefore = character.sheet.resources.hp.temp || 0;
+      let remainingHarm = reducedHarm;
+
+      // Apply to temp HP first if requested and available
+      if (applyToTemp && tempBefore > 0) {
+        const tempDamage = Math.min(tempBefore, remainingHarm);
+        character.sheet.resources.hp.temp = tempBefore - tempDamage;
+        remainingHarm -= tempDamage;
+      }
+
+      // Apply remaining harm to current HP
+      character.sheet.resources.hp.current = Math.max(0, hpBefore - remainingHarm);
+
+      // Persist changes
+      await character.save();
+
+      // Emit event for tracking
+      eventBus.publish('game.character.harm_applied', {
+        characterId: character._id,
+        playerId: character.player,
+        harm: reducedHarm,
+        protection: totalProtection,
+      });
+
+      return {
+        incomingHarm,
+        protection: totalProtection,
+        appliedHarm: reducedHarm,
+        hpBefore,
+        hpAfter: character.sheet.resources.hp.current,
+        tempBefore,
+        tempAfter: character.sheet.resources.hp.temp || 0, 
+      };
+    } catch (error) {
+      if (error instanceof ErrorUtil) throw error;
+      throw new ErrorUtil('Failed to apply harm', 500);
     }
   }
 }

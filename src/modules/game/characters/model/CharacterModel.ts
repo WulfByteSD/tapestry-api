@@ -50,7 +50,7 @@ export interface AttackProfile {
 
 export interface InventoryItem {
   instanceId?: string;
-
+  protection?: number; // optional field for armor items
   // canonical content link
   definition?: {
     itemKey: string;
@@ -228,7 +228,7 @@ const InventoryItemSchema = new mongoose.Schema(
     instanceId: { type: String, trim: true },
     stackable: { type: Boolean, default: false },
     definition: { type: InventoryDefinitionRefSchema, default: null },
-
+    protection: { type: Number, default: null }, // optional field for armor items
     itemKey: { type: String, trim: true },
     sourceId: { type: String, trim: true },
 

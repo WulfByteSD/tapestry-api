@@ -25,6 +25,7 @@ router.route('/:id').get(service.getResource).put(service.updateResource).delete
 // Campaign operations
 router.route('/:id/join-campaign').post(service.joinCampaign);
 router.route('/:id/leave-campaign').post(service.leaveCampaign);
+router.route('/:id/apply-harm').post(service.applyHarm);
 
 // Character forking
 router.route('/:id/fork').post(service.forkCharacter);

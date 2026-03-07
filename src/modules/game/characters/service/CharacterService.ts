@@ -5,6 +5,7 @@ import { CharacterHandler } from '../handlers/Character.handler';
 import CharacterModel from '../model/CharacterModel';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import asyncHandler from '../../../../middleware/asyncHandler';
+import error from '../../../../middleware/error';
 
 type CharacterInput = {
   player: string;
@@ -149,5 +150,50 @@ export default class CharacterService extends CRUDService {
     const forkedCharacter = await this.characterHandler.forkCharacter(characterId);
 
     res.status(201).json(forkedCharacter);
+  });
+
+  /**
+   * Apply harm/damage to a character
+   */
+  applyHarm = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { id: characterId } = req.params;
+      const { harm, applyToTemp = true } = req.body;
+
+      if (!characterId) {
+        return res.status(400).json({ error: 'Character ID is required' });
+      }
+
+      if (typeof harm !== 'number' || harm < 0) {
+        return res.status(400).json({ error: 'Valid harm value is required' });
+      }
+
+      // Find player profile for ownership verification
+      const playerProfile = await PlayerModel.findOne({ user: req.user._id } as any);
+      if (!playerProfile) {
+        return res.status(403).json({ error: 'Player profile not found' });
+      }
+
+      // Verify character ownership
+      const character = await CharacterModel.findById(characterId);
+      if (!character) {
+        return res.status(404).json({ error: 'Character not found' });
+      }
+
+      if (character.player.toString() !== playerProfile._id.toString()) {
+        return res.status(403).json({ error: 'You do not own this character' });
+      }
+
+      // Apply harm through handler
+      const result = await this.characterHandler.applyHarm(characterId, harm, applyToTemp);
+
+      res.status(200).json({
+        success: true, 
+        payload: result,
+      });
+    } catch (err) {
+      console.error('Error applying harm:', err);
+      error(err, req, res);
+    }
   });
 }
