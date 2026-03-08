@@ -158,8 +158,7 @@ export default class CharacterService extends CRUDService {
   applyHarm = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id: characterId } = req.params;
-      const { harm, applyToTemp = true } = req.body;
-
+      const { incomingHarm: harm, applyToTemp = true } = req.body;
       if (!characterId) {
         return res.status(400).json({ error: 'Character ID is required' });
       }
@@ -188,7 +187,7 @@ export default class CharacterService extends CRUDService {
       const result = await this.characterHandler.applyHarm(characterId, harm, applyToTemp);
 
       res.status(200).json({
-        success: true, 
+        success: true,
         payload: result,
       });
     } catch (err) {
