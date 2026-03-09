@@ -61,6 +61,7 @@ export interface CharacterType extends mongoose.Document {
     conditions: ConditionInstance[];
     inventory: InventoryItem[];
     noteCards: NoteCard[];
+    learnedAbilities: CharacterLearnedAbility[];
   };
 
   forkedFrom?: string | null;
