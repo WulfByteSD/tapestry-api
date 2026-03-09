@@ -108,10 +108,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     // Save the document (single DB write)
     const updated = await character.save();
 
-    console.log(`Character ${updated._id} updated successfully`);
-    console.log('Updated character data:', updated.sheet.inventory);
     await this.afterUpdate(updated);
-
     return updated;
   }
 
@@ -347,7 +344,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
         hpBefore,
         hpAfter: character.sheet.resources.hp.current,
         tempBefore,
-        tempAfter: character.sheet.resources.hp.temp || 0, 
+        tempAfter: character.sheet.resources.hp.temp || 0,
       };
     } catch (error) {
       if (error instanceof ErrorUtil) throw error;

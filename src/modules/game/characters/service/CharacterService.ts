@@ -306,11 +306,12 @@ export default class CharacterService extends CRUDService {
 
       await this.afterUpdate(result);
 
+      // convert result to JSON and enrich with derived data before sending response
       const payload = await this.enrichCharacterPayload(result);
 
       return res.status(201).json({
         success: true,
-        payload,
+        payload
       });
     } catch (err) {
       console.error(err);

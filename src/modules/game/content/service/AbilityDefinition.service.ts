@@ -47,8 +47,9 @@ export default class AbilitiesService extends CRUDService {
     try {
       const { settingKey } = req.params;
       const category = typeof req.query.category === 'string' ? req.query.category : undefined;
+      const sourceType = typeof req.query.sourceType === 'string' ? req.query.sourceType : undefined;
 
-      const result = await this.abilityHandler.fetchBySettingKey(settingKey, category);
+      const result = await this.abilityHandler.fetchBySettingKey(settingKey, category, sourceType);
 
       return res.status(200).json({
         success: true,
