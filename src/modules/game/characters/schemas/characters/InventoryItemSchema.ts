@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { GrantedAbilityRefSchema } from '../../../schemas/GrantedAbilitySchema';
+import { GrantedAbilityRef, GrantedAbilityRefSchema } from '../../../schemas/GrantedAbilitySchema';
 import { AttackProfileSchema, AttackProfile } from './AttackProfileSchema';
 
 /**
@@ -39,6 +39,7 @@ export interface InventoryItem {
   category?: 'weapon' | 'armor' | 'gear' | 'consumable' | 'tool' | 'currency' | 'quest' | 'other';
   equipped?: boolean;
   slot?: string;
+  grantedAbilities?: GrantedAbilityRef[]
   attackProfiles?: AttackProfile[];
   selectedAttackProfileKey?: string;
   overrides?: InventoryOverrides;

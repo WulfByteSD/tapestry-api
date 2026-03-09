@@ -6,6 +6,8 @@ import CharacterModel from '../model/CharacterModel';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import asyncHandler from '../../../../middleware/asyncHandler';
 import error from '../../../../middleware/error';
+import { AdvFilters } from '../../../../utils/advFilter/AdvFilters';
+import { buildEffectiveAbilities } from '../helpers/buildEffectiveAbilities';
 
 type CharacterInput = {
   player: string;
@@ -195,4 +197,124 @@ export default class CharacterService extends CRUDService {
       error(err, req, res);
     }
   });
+
+  private async enrichCharacterPayload(character: any) {
+    if (!character) return character;
+
+    const effectiveAbilities = await buildEffectiveAbilities({
+      learnedAbilities: character?.sheet?.learnedAbilities ?? [],
+      inventory: character?.sheet?.inventory ?? [],
+    });
+
+    return {
+      ...character,
+      derived: {
+        ...(character?.derived ?? {}),
+        effectiveAbilities,
+      },
+    };
+  }
+
+  private async enrichCharacterListPayload(characters: any[]) {
+    return await Promise.all((characters ?? []).map((entry) => this.enrichCharacterPayload(entry)));
+  }
+
+  public getResource = asyncHandler(async (req: Request, res: Response, next: any): Promise<Response> => {
+    try {
+      this.ensureAuthenticated(req as AuthenticatedRequest, 'getResource');
+
+      await this.beforeFetch(req.params.id as any);
+
+      const result = await this.handler.fetch(req.params.id);
+      await this.afterFetch(result);
+
+      if (!result) {
+        return res.status(404).json({ message: 'Resource Not found' });
+      }
+
+      const payload = await this.enrichCharacterPayload(result);
+
+      return res.status(200).json({
+        success: true,
+        payload,
+      });
+    } catch (err) {
+      console.error(err);
+      return error(err, req, res);
+    }
+  }) as any;
+
+  public getResources = asyncHandler(async (req: Request, res: Response, next: any): Promise<Response> => {
+    try {
+      this.ensureAuthenticated(req as AuthenticatedRequest, 'getResources');
+
+      const pageSize = Number(req.query?.pageLimit) || 10;
+      const page = Number(req.query?.pageNumber) || 1;
+
+      const keywordQuery = AdvFilters.query(this.queryKeys, req.query?.keyword as string);
+      const filterIncludeOptions = AdvFilters.filter(req.query?.includeOptions as string);
+
+      const orConditions = [
+        ...(Object.keys(keywordQuery[0]).length > 0 ? keywordQuery : []),
+        ...(Array.isArray(filterIncludeOptions) && filterIncludeOptions.length > 0 && Object.keys(filterIncludeOptions[0]).length > 0 ? filterIncludeOptions : []),
+      ];
+
+      await this.beforeFetchAll({
+        filters: AdvFilters.filter(req.query?.filterOptions as string),
+        sort: AdvFilters.sort((req.query?.sortOptions as string) || '-createdAt'),
+        query: orConditions,
+        page,
+        limit: pageSize,
+      });
+
+      const [result] = await this.handler.fetchAll({
+        filters: AdvFilters.filter(req.query?.filterOptions as string),
+        sort: AdvFilters.sort((req.query?.sortOptions as string) || '-createdAt'),
+        query: orConditions,
+        page,
+        limit: pageSize,
+      });
+
+      await this.afterFetchAll(result);
+
+      const payload = await this.enrichCharacterListPayload(result.entries ?? []);
+
+      return res.status(200).json({
+        success: true,
+        payload,
+        metadata: {
+          page,
+          pages: Math.ceil(result.metadata[0]?.totalCount / pageSize) || 0,
+          totalCount: result.metadata[0]?.totalCount || 0,
+          prevPage: page - 1,
+          nextPage: page + 1,
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      return error(err, req, res);
+    }
+  }) as any;
+
+  public updateResource = asyncHandler(async (req: Request, res: Response, next: any): Promise<Response> => {
+    try {
+      this.ensureAuthenticated(req as AuthenticatedRequest, 'updateResource');
+
+      await this.beforeUpdate(req.params.id as string, req.body);
+
+      const result = await this.handler.update(req.params.id, req.body);
+
+      await this.afterUpdate(result);
+
+      const payload = await this.enrichCharacterPayload(result);
+
+      return res.status(201).json({
+        success: true,
+        payload,
+      });
+    } catch (err) {
+      console.error(err);
+      return error(err, req, res);
+    }
+  }) as any;
 }
