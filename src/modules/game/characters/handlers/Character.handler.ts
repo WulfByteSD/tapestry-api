@@ -196,7 +196,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
    * Fork a character (create a copy)
    * Sets forkedFrom reference to original character
    */
-  async forkCharacter(characterId: string): Promise<CharacterType> {
+  async forkCharacter(characterId: string, copyAllData: boolean): Promise<CharacterType> {
     try {
       const originalCharacter = await this.Schema.findById(characterId);
       if (!originalCharacter) {
@@ -207,7 +207,23 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
       const characterData: any = originalCharacter.toObject();
 
       // Remove fields that shouldn't be copied
+      // if copyAllData is false, we will also clear aspects, inventory, conditions, note cards, and learned abilities to create a "blank" character with the same profile
       const { _id, createdAt, updatedAt, __v, ...dataToKeep } = characterData;
+
+      if (!copyAllData) {
+        dataToKeep.sheet = {
+          ...dataToKeep.sheet,
+          aspects: [],
+          inventory: [],
+          conditions: [],
+          skills: {},
+          noteCards: [],
+          learnedAbilities: [],
+          // explicitly set settingKey to undefined to prevent accidentally copying setting-specific data to a new character that might be used in a different setting
+          weaveLevel: 0, // reset weave level for new character, as this is often tied to progression and we want forks to start fresh in that regard
+        };
+        dataToKeep.settingKey = undefined; // prevent copying setting association for a forked character, as they may want to use it in a different setting
+      }
 
       // Set fork reference and clear campaign (forked characters start without a campaign)
       const forkedData = {
@@ -229,6 +245,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
 
       return forkedCharacter;
     } catch (error) {
+      console.log(error);
       if (error instanceof ErrorUtil) throw error;
       throw new ErrorUtil('Failed to fork character', 500);
     }

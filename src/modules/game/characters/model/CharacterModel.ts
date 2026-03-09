@@ -93,7 +93,7 @@ const CharacterSchema = new mongoose.Schema(
 
     sheet: {
       archetypeKey: { type: String, trim: true },
-      weaveLevel: { type: Number, default: 1, min: 1 },
+      weaveLevel: { type: Number, default: 0, min: 0 },
       profile: {
         title: { type: String, trim: true },
         bio: { type: String, trim: true },

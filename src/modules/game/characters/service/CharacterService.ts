@@ -128,6 +128,7 @@ export default class CharacterService extends CRUDService {
    */
   forkCharacter = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id: characterId } = req.params;
+    const { copyAllData } = req.body;
 
     if (!characterId) {
       return res.status(400).json({ error: 'Character ID is required' });
@@ -149,9 +150,9 @@ export default class CharacterService extends CRUDService {
       return res.status(403).json({ error: 'You can only fork your own characters' });
     }
 
-    const forkedCharacter = await this.characterHandler.forkCharacter(characterId);
+    const forkedCharacter = await this.characterHandler.forkCharacter(characterId, copyAllData);
 
-    res.status(201).json(forkedCharacter);
+    res.status(201).json(forkedCharacter); 
   });
 
   /**
@@ -311,7 +312,7 @@ export default class CharacterService extends CRUDService {
 
       return res.status(201).json({
         success: true,
-        payload
+        payload,
       });
     } catch (err) {
       console.error(err);
