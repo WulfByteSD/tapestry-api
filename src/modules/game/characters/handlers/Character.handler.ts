@@ -108,8 +108,16 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     // Save the document (single DB write)
     const updated = await character.save();
 
-    await this.afterUpdate(updated);
-    return updated;
+    // convert to plain object and apply any necessary transformations before returning
+    const updatedObj = updated.toObject({
+      flattenMaps: true,
+      getters: false,
+      virtuals: false,
+      versionKey: true,
+    });
+
+    await this.afterUpdate(updatedObj);
+    return updatedObj;
   }
 
   /**
