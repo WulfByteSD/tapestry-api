@@ -11,6 +11,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "seed:game-content": "ts-node src/scripts/seedGameContent.ts",
+    "seed:abilities": "ts-node src/scripts/seedAbilities.ts",
     "seed:skills": "ts-node src/scripts/seedSkills.ts"
   },
   "author": "Austin Howard",

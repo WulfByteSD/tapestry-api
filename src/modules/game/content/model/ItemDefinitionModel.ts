@@ -32,10 +32,48 @@ export interface ItemDefinitionType extends mongoose.Document {
   protection?: number;
   notes?: string;
   attackProfiles: AttackProfile[];
+  grantedAbilities: GrantedAbilityRef[];
   createdAt: Date;
   updatedAt: Date;
 }
+export interface GrantedAbilityRef {
+  abilityId: mongoose.Types.ObjectId;
+  abilityKey: string;
+  requiresEquipped?: boolean;
+  grantMode?: 'passive' | 'active';
+  notes?: string;
+}
 
+const GrantedAbilityRefSchema = new mongoose.Schema(
+  {
+    abilityId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AbilityDefinition',
+      required: true,
+    },
+    abilityKey: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
+    requiresEquipped: {
+      type: Boolean,
+      default: true,
+    },
+    grantMode: {
+      type: String,
+      enum: ['passive', 'active'],
+      default: 'active',
+    },
+    notes: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+  },
+  { _id: false }
+);
 const AttackProfileSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, trim: true },
@@ -85,6 +123,7 @@ const ItemDefinitionSchema = new mongoose.Schema(
     protection: { type: Number, default: 0 },
     notes: { type: String, default: '', trim: true },
     attackProfiles: { type: [AttackProfileSchema], default: [] },
+    grantedAbilities: { type: [GrantedAbilityRefSchema], default: [] },
   },
   {
     timestamps: true,
