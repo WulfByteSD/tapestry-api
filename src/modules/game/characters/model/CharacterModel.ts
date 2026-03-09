@@ -1,118 +1,17 @@
 import mongoose from 'mongoose';
+import { AspectBlock } from '../schemas/characters/AspectBlockSchema';
+import { ResourceTrack, ResourceTrackSchema } from '../schemas/characters/ResourceTrackSchema';
+import { ConditionInstance, ConditionInstanceSchema } from '../schemas/characters/ConditionInstanceSchema';
+import { NoteCard, NoteCardSchema } from '../schemas/characters/NoteCardSchema';
+import { AttackProfile } from '../schemas/characters/AttackProfileSchema';
+import { InventoryItem, InventoryItemSchema } from '../schemas/characters/InventoryItemSchema';
+import { CharacterProfile } from '../schemas/characters/CharacterProfileSchema';
+import { CharacterLearnedAbility, CharacterLearnedAbilitySchema } from '../schemas/characters/CharacterLearnedAbilitySchema';
 
 export type SheetStatus = 'active' | 'archived';
 
-/**
- * Canonical aspects per the Player’s Guide:
- * Might[Strength], Might[Presence]
- * Finesse[Agility], Finesse[Charm]
- * Wit[Instinct], Wit[Knowledge]
- * Resolve[Willpower], Resolve[Empathy]
- */
-export interface AspectBlock {
-  strength: number;
-  presence: number;
-  agility: number;
-  charm: number;
-  instinct: number;
-  knowledge: number;
-  willpower: number;
-  empathy: number;
-}
-
-export interface ResourceTrack {
-  current: number;
-  max: number;
-  temp?: number;
-}
-
-export interface ConditionInstance {
-  key: string; // e.g. "poisoned", "exposed"
-  stacks?: number; // optional
-  appliedAt?: Date; // optional (defaults to now)
-  expiresAt?: Date | null; // optional
-  source?: string; // optional narrative reference / source key
-  notes?: string;
-}
-
-export type NoteCardKind = 'general' | 'npc' | 'quest' | 'location' | 'faction' | 'clue';
-
-export interface NoteCard {
-  id: string;
-  title: string;
-  body: string;
-  kind: NoteCardKind;
-  pinned?: boolean;
-  tags?: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface AttackProfile {
-  key: string;
-  name: string;
-  attackKind?: 'melee' | 'ranged' | 'spell' | 'special';
-  defaultAspect?: string;
-  allowedSkillKeys?: string[];
-  modifier?: number;
-  harm?: number | string;
-  rangeLabel?: string;
-  tags?: string[];
-  notes?: string;
-}
-
-export interface InventoryItem {
-  instanceId?: string;
-  protection?: number; // optional field for armor items
-  // canonical content link
-  definition?: {
-    itemKey: string;
-    sourceId?: string;
-    settingKey?: string;
-    version?: number;
-  };
-  stackable?: boolean;
-  // transitional / legacy
-  itemKey?: string;
-  sourceId?: string;
-
-  name?: string;
-
-  qty: number;
-  tags?: string[];
-  notes?: string;
-
-  category?: 'weapon' | 'armor' | 'gear' | 'consumable' | 'tool' | 'currency' | 'quest' | 'other';
-
-  equipped?: boolean;
-  slot?: string;
-
-  attackProfiles?: AttackProfile[];
-  selectedAttackProfileKey?: string;
-
-  overrides?: {
-    displayName?: string;
-    modifier?: number;
-    harm?: number | string;
-    tags?: string[];
-  };
-}
-
-export type CharacterProfile = {
-  title?: string;
-  bio?: string;
-  race?: string;
-  nationality?: string;
-  religion?: string;
-  sex?: string;
-  height?: string;
-  weight?: string;
-  eyes?: string;
-  hair?: string;
-  ethnicity?: string;
-  age?: number | string;
-  extra?: Record<string, string>;
-};
+// Re-export types for convenience
+export type { AspectBlock, ResourceTrack, ConditionInstance, NoteCard, AttackProfile, InventoryItem, CharacterProfile, CharacterLearnedAbility };
 
 export interface CharacterType extends mongoose.Document {
   player: string;
@@ -173,115 +72,7 @@ export interface CharacterType extends mongoose.Document {
   };
 }
 
-// ----- sub-schemas -----
-
-const ResourceTrackSchema = new mongoose.Schema(
-  {
-    current: { type: Number, default: 0, min: 0 },
-    max: { type: Number, default: 0, min: 0 },
-    temp: { type: Number, default: 0, min: 0 },
-  },
-  { _id: false }
-);
-
-const ConditionInstanceSchema = new mongoose.Schema(
-  {
-    key: { type: String, required: true, trim: true },
-    stacks: { type: Number, default: 1 },
-    appliedAt: { type: Date, default: () => new Date() },
-    expiresAt: { type: Date, default: null },
-    source: { type: String, trim: true },
-    notes: { type: String },
-  },
-  { _id: false }
-);
-const NoteCardSchema = new mongoose.Schema(
-  {
-    id: { type: String, required: true, trim: true },
-    title: { type: String, required: true, trim: true, default: 'Untitled Note' },
-    body: { type: String, default: '' },
-    kind: {
-      type: String,
-      enum: ['general', 'npc', 'quest', 'location', 'faction', 'clue'],
-      default: 'general',
-    },
-    pinned: { type: Boolean, default: false },
-    tags: { type: [String], default: [] },
-    createdAt: { type: Date, default: () => new Date() },
-    updatedAt: { type: Date, default: () => new Date() },
-  },
-  { _id: false }
-);
-const AttackProfileSchema = new mongoose.Schema(
-  {
-    key: { type: String, required: true, trim: true },
-    name: { type: String, required: true, trim: true },
-    attackKind: {
-      type: String,
-      enum: ['melee', 'ranged', 'spell', 'special'],
-      default: 'melee',
-    },
-    defaultAspect: { type: String, trim: true, default: null },
-    allowedSkillKeys: { type: [String], default: [] },
-    modifier: { type: Number, default: 0 },
-    harm: { type: mongoose.Schema.Types.Mixed, default: null },
-    rangeLabel: { type: String, trim: true, default: null },
-    tags: { type: [String], default: [] },
-    notes: { type: String, default: '' },
-  },
-  { _id: false }
-);
-
-const InventoryDefinitionRefSchema = new mongoose.Schema(
-  {
-    itemKey: { type: String, trim: true, required: true },
-    sourceId: { type: String, trim: true, default: null },
-    settingKey: { type: String, trim: true, default: null },
-    version: { type: Number, default: 1 },
-  },
-  { _id: false }
-);
-
-const InventoryOverridesSchema = new mongoose.Schema(
-  {
-    displayName: { type: String, trim: true, default: null },
-    modifier: { type: Number, default: null },
-    harm: { type: mongoose.Schema.Types.Mixed, default: null },
-    tags: { type: [String], default: [] },
-  },
-  { _id: false }
-);
-
-const InventoryItemSchema = new mongoose.Schema(
-  {
-    instanceId: { type: String, trim: true },
-    stackable: { type: Boolean, default: false },
-    definition: { type: InventoryDefinitionRefSchema, default: null },
-    protection: { type: Number, default: null }, // optional field for armor items
-    itemKey: { type: String, trim: true },
-    sourceId: { type: String, trim: true },
-
-    name: { type: String, trim: true },
-
-    qty: { type: Number, default: 1, min: 0 },
-    tags: { type: [String], default: [] },
-    notes: { type: String, default: '' },
-
-    category: {
-      type: String,
-      enum: ['weapon', 'armor', 'gear', 'consumable', 'tool', 'currency', 'quest', 'other'],
-      default: 'other',
-    },
-    equipped: { type: Boolean, default: false },
-    slot: { type: String, trim: true, default: null },
-
-    attackProfiles: { type: [AttackProfileSchema], default: [] },
-    selectedAttackProfileKey: { type: String, trim: true, default: null },
-
-    overrides: { type: InventoryOverridesSchema, default: null },
-  },
-  { _id: false }
-);
+// ----- All sub-schemas are now imported from ./schemas folder -----
 
 // ----- main schema -----
 
@@ -349,7 +140,7 @@ const CharacterSchema = new mongoose.Schema(
         resolve: { type: ResourceTrackSchema, default: () => ({ current: 0, max: 0, temp: 0 }) },
         other: { type: Map, of: Number, default: {} },
       },
-
+      learnedAbilities: { type: [CharacterLearnedAbilitySchema], default: [] },
       conditions: { type: [ConditionInstanceSchema], default: [] },
       inventory: { type: [InventoryItemSchema], default: [] },
 

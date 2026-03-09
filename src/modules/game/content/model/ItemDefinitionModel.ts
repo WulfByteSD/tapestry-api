@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { GrantedAbilityRef, GrantedAbilityRefSchema } from '../../schemas/GrantedAbilitySchema';
 
 export type ContentStatus = 'draft' | 'published' | 'archived';
 export type InventoryCategory = 'weapon' | 'armor' | 'gear' | 'consumable' | 'tool' | 'currency' | 'quest' | 'other';
@@ -36,44 +37,7 @@ export interface ItemDefinitionType extends mongoose.Document {
   createdAt: Date;
   updatedAt: Date;
 }
-export interface GrantedAbilityRef {
-  abilityId: mongoose.Types.ObjectId;
-  abilityKey: string;
-  requiresEquipped?: boolean;
-  grantMode?: 'passive' | 'active';
-  notes?: string;
-}
 
-const GrantedAbilityRefSchema = new mongoose.Schema(
-  {
-    abilityId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'AbilityDefinition',
-      required: true,
-    },
-    abilityKey: {
-      type: String,
-      required: true,
-      trim: true,
-      lowercase: true,
-    },
-    requiresEquipped: {
-      type: Boolean,
-      default: true,
-    },
-    grantMode: {
-      type: String,
-      enum: ['passive', 'active'],
-      default: 'active',
-    },
-    notes: {
-      type: String,
-      default: '',
-      trim: true,
-    },
-  },
-  { _id: false }
-);
 const AttackProfileSchema = new mongoose.Schema(
   {
     key: { type: String, required: true, trim: true },
