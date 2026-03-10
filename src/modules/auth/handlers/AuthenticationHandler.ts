@@ -5,6 +5,7 @@ import { AuthenticatedRequest } from '../../../types/AuthenticatedRequest';
 import axios from 'axios';
 import { ErrorUtil } from '../../../middleware/ErrorUtil';
 import SignInLog from '../model/SignInLog';
+import PlayerModel from '../../profiles/player/model/PlayerModel';
 
 export class AuthenticationHandler {
   /**
@@ -80,11 +81,24 @@ export class AuthenticationHandler {
     if (!foundUser) {
       throw new ErrorUtil('User not found.', 404);
     }
+
+    // fetch user's player profile
+    const playerProfile = await PlayerModel.findOne({ user: foundUser._id as any });
+    if (!playerProfile) {
+      console.warn(`No player profile found for user ${foundUser._id}`);
+    }
+
+    const adminProfile = null; // Placeholder for future admin profile fetching logic
+
     return {
       payload: {
         _id: foundUser._id,
         email: foundUser.email,
         fullName: foundUser.fullName,
+        profileRefs: {
+          player: playerProfile ? playerProfile._id : null,
+          admin: undefined, // to be implemented when admin profiles are added
+        },
         roles: foundUser.role,
         acceptedPolicies: foundUser.acceptedPolicies || {},
         notificationSettings: foundUser.notificationSettings || {},

@@ -55,4 +55,6 @@ router.route('/:id/promote-storyweaver').patch(
   })
 );
 
+router.route('/profile/:id').get(service.getResource);
+
 export default router;
