@@ -12,6 +12,7 @@ export class PlayerProfileCreator implements ProfileCreator {
     }
 
     const playerProfile = await PlayerService.createProfile({
+      ...profileData,
       user: userId,
       roles,
       displayName: profileData?.displayName,

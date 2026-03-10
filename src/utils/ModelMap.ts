@@ -8,13 +8,15 @@ import Receipt from '../modules/payment/models/Receipt';
 import PlanSchema from '../modules/auth/model/PlanSchema';
 import CharacterModel from '../modules/game/characters/model/CharacterModel';
 import CampaignModel from '../modules/game/campaigns/model/CampaignModel';
+import Auth from '../modules/auth/model/Auth';
 
-export type ModelKey = 'admin' | 'player' | 'user' | 'token' | 'billing' | 'receipt' | 'plan' | 'character' | 'campaign';
+export type ModelKey = 'admin' | 'player' | 'user' | 'auth' | 'token' | 'billing' | 'receipt' | 'plan' | 'character' | 'campaign';
 
 export const ModelMap: Record<ModelKey, any> = {
   admin: AdminModel,
   player: PlayerModel,
   user: User,
+  auth: Auth,
   token: Token,
   billing: BillingAccount,
   receipt: Receipt,

@@ -15,7 +15,6 @@ export default class RegistrationEventHandler {
         subject: 'Your Password Has Been Reset Successfully',
         templateId: 'd-100b051843c146f5b2e19633f004a15b',
         data: {
-          firstName: user.firstName,
           currentYear: new Date().getFullYear(),
           subject: 'Your Password Has Been Reset Successfully',
         },
@@ -42,7 +41,7 @@ export default class RegistrationEventHandler {
         },
       });
     } catch (err: any) {
-      console.error(err.response.body.errors); 
+      console.error(err.response?.body?.errors);
       throw new ErrorUtil('Failed to handle user verify email event', 500);
     }
   };

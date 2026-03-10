@@ -12,18 +12,11 @@ import crypto from 'crypto';
  * @lastModified - 2023-06-11T16:20:26.000-05:00
  */
 export interface AuthType extends mongoose.Document {
-  firstName: string;
-  lastName: string;
   customerId: string;
-  profileImageUrl: string;
-  phoneNumber: string;
   email: string;
   password: string;
   role: string[];
-  fullName: string;
   isActive: boolean;
-  resetPasswordToken: string | undefined | null;
-  resetPasswordExpire: Date | undefined | null;
   notificationSettings: Record<string, boolean>;
   accessKey: string;
   createdAt: Date;
@@ -32,8 +25,6 @@ export interface AuthType extends mongoose.Document {
   acceptedPolicies: Record<string, number>;
   permissions: string[];
   lastSignedIn: Date | undefined | null;
-  emailVerificationToken: string | undefined | null;
-  emailVerificationExpires: Date | undefined | null;
   profileRefs: Record<string, string | null>;
   getSignedJwtToken: () => string;
   getResetPasswordToken: () => string;
@@ -42,24 +33,10 @@ export interface AuthType extends mongoose.Document {
 
 const AuthSchema = new mongoose.Schema(
   {
-    firstName: {
-      type: String,
-      required: [true, 'Please add a name'],
-    },
-    lastName: {
-      type: String,
-    },
-    profileImageUrl: {
-      type: String,
-    },
     email: {
       type: String,
       required: [true, 'Please add an email'],
       unique: true,
-    },
-    phoneNumber: {
-      type: String,
-      required: [true, 'Please add a phone number'],
     },
     password: {
       type: String,
@@ -81,9 +58,6 @@ const AuthSchema = new mongoose.Schema(
     lastSignedIn: {
       type: Date,
     },
-    fullName: {
-      type: String,
-    },
     isEmailVerified: {
       type: Boolean,
       default: false,
@@ -95,17 +69,6 @@ const AuthSchema = new mongoose.Schema(
     acceptedPolicies: {
       type: Map,
       of: Number, // version stamp when they accepted the policy
-    },
-    resetPasswordToken: {
-      type: String,
-      select: false, // do not return this field by default
-    },
-    resetPasswordExpire: Date,
-    emailVerificationToken: {
-      type: String,
-    },
-    emailVerificationExpires: {
-      type: Date,
     },
     profileRefs: {
       type: Object,
@@ -135,13 +98,6 @@ AuthSchema.pre('save', async function (next: any) {
     const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password!, salt);
   next;
-});
-
-// creates the fullName field.
-AuthSchema.pre('save', async function () {
-  const firstName = this.firstName ?? '';
-  const lastName = this.lastName ?? '';
-  this.fullName = `${firstName} ${lastName}`.trim();
 });
 
 // Sign JWT and return
