@@ -326,8 +326,8 @@ export default class PaymentProcessingHandler {
       },
       customer: {
         email: billingAccount.email,
-        name: `${billingAccount.payor.firstName} ${billingAccount.payor.lastName}`,
-        phone: billingAccount.payor.phoneNumber || '',
+        // name: `${billingAccount.payor.firstName} ${billingAccount.payor.lastName}`,
+        // phone: billingAccount.payor.phoneNumber || '',
       },
       transactionDate: new Date(),
     });
@@ -369,8 +369,8 @@ export default class PaymentProcessingHandler {
       },
       customer: {
         email: billingAccount.email,
-        name: `${billingAccount.payor.firstName} ${billingAccount.payor.lastName}`,
-        phone: billingAccount.payor.phoneNumber || '',
+        // name: `${billingAccount.payor.firstName} ${billingAccount.payor.lastName}`,
+        // phone: billingAccount.payor.phoneNumber || '',
       },
       failure: {
         reason: paymentResult.message || 'Payment processing failed',
@@ -408,8 +408,8 @@ export default class PaymentProcessingHandler {
       },
       customer: {
         email: billingAccount.email,
-        name: billingAccount.payor ? `${billingAccount.payor.firstName} ${billingAccount.payor.lastName}` : 'Unknown',
-        phone: billingAccount.payor?.phoneNumber || '',
+        // name: billingAccount.payor ? `${billingAccount.payor.firstName} ${billingAccount.payor.lastName}` : 'Unknown',
+        // phone: billingAccount.payor?.phoneNumber || '',
       },
       failure: {
         reason: errorMessage,

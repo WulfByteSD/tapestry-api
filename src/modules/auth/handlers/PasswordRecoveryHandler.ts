@@ -39,13 +39,13 @@ export class PasswordRecoveryHandler {
       }; // Invalid token
     }
     // Check expiry
-    if (user.resetPasswordExpire && user.resetPasswordExpire < new Date()) {
-      return {
-        valid: false,
-        userId: undefined,
-        message: 'Token expired.',
-      }; // Token expired
-    }
+    // if (user.resetPasswordExpire && user.resetPasswordExpire < new Date()) {
+    //   return {
+    //     valid: false,
+    //     userId: undefined,
+    //     message: 'Token expired.',
+    //   }; // Token expired
+    // }
     // Return valid/invalid
     return {
       valid: true,
@@ -68,8 +68,8 @@ export class PasswordRecoveryHandler {
     // set new password, user schema will handle hashing after save
     user.password = newPassword;
     // Clear reset token and expiry
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpire = undefined;
+    // user.resetPasswordToken = undefined;
+    // user.resetPasswordExpire = undefined;
 
     // Save user
     return await user.save();

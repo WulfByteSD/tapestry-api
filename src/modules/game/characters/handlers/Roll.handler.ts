@@ -63,7 +63,7 @@ export class RollHandler extends CRUDHandler<RollLogType> {
 
   constructor() {
     super(RollLogModel as mongoose.Model<RollLogType>);
-    this.roller = new DiceRollerService();
+    this.roller = new DiceRollerService(); 
   }
 
   async createRoll(data: CreateRollData): Promise<RollResult> {

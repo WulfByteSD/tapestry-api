@@ -42,7 +42,7 @@ export class BillingHandler {
         email: billing.email,
         paymentMethod: paymentMethod,
         country: getPaymentSafeCountryCode(paymentFormValues.country),
-        phone: billing.payor?.phoneNumber,
+        // phone: billing.payor?.phoneNumber,
         stripeToken: paymentFormValues?.stripeToken, // For Stripe tokenized payments
         creditCardDetails: {
           ccnumber: paymentFormValues?.ccnumber,
