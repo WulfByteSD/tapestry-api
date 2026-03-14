@@ -4,6 +4,7 @@ import characterRoutes from '../characters/routes/index';
 import campaignRoutes from '../campaigns/routes/index';
 import rollRoutes from '../characters/routes/rollRoutes';
 import contentRoutes from '../content/route/index';
+import storyweaverRoutes from '../storyweaver/routes/index';
 
 const router = express.Router();
 
@@ -12,6 +13,7 @@ router.use('/characters', characterRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/rolls', rollRoutes);
 router.use("/content", contentRoutes);
+router.use("/storyweaver", storyweaverRoutes);
 
 // Health check
 router.get('/health', (req, res) => {

@@ -18,6 +18,10 @@ export interface PlayerType extends mongoose.Document {
     activeCampaigns?: number;
     totalPlayers?: number;
   };
+  storyweaverSettings?: {
+    enabledAt?: Date;
+    officialLoreOptIn?: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
