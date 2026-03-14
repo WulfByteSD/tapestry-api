@@ -22,7 +22,7 @@ export interface AuthType extends mongoose.Document {
   createdAt: Date;
   updatedAt: Date;
   isEmailVerified: boolean;
-  acceptedPolicies: Record<string, number>;
+  acceptedPolicies: Map<string, number>;
   permissions: string[];
   lastSignedIn: Date | undefined | null;
   profileRefs: Record<string, string | null>;
@@ -94,8 +94,8 @@ AuthSchema.pre('save', async function (next: any) {
   //conditional will check to see if the password is being modified so it wont update the password constantly.
   if (!this.isModified('password')) {
     return next;
-    }
-    const salt = await bcrypt.genSalt(10);
+  }
+  const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password!, salt);
   next;
 });

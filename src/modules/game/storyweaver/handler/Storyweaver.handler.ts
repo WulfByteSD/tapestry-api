@@ -15,11 +15,10 @@ export class StoryweaverHandler {
       throw new ErrorUtil('User not found.', 404);
     }
 
-    const playerProfileId = auth.profileRefs?.player;
-    if (!playerProfileId) {
-      throw new ErrorUtil('Player profile is required before becoming a Storyweaver.', 400);
+    const playerProfile = await PlayerModel.findOne({ user: userId as any });
+    if (!playerProfile) {
+      throw new ErrorUtil('Player profile not found.', 404);
     }
-
     const [contentLicense, storyweaverPolicy] = await Promise.all([
       LegalPages.findOne({ type: 'content-license' }).sort({ updatedAt: -1 }),
       LegalPages.findOne({ type: 'storyweaver-policy' }).sort({ updatedAt: -1 }),
@@ -28,36 +27,35 @@ export class StoryweaverHandler {
     if (!contentLicense || !storyweaverPolicy) {
       throw new ErrorUtil('Required Storyweaver policies are missing.', 500);
     }
+    console.log('Content License Version:', contentLicense.version);
+    console.log('Storyweaver Policy Version:', storyweaverPolicy.version);
 
-    const acceptedPolicies = {
-      ...(auth.acceptedPolicies || {}),
-      'content-license': Number(contentLicense.version),
-      'storyweaver-policy': Number(storyweaverPolicy.version),
-    };
-
-    auth.acceptedPolicies = acceptedPolicies as any;
-    await auth.save();
-
-    const player = await PlayerModel.findById(playerProfileId);
-    if (!player) {
-      throw new ErrorUtil('Player profile not found.', 404);
+    // Initialize acceptedPolicies as a Map if it doesn't exist
+    if (!auth.acceptedPolicies) {
+      auth.acceptedPolicies = new Map() as any;
     }
 
-    const roleSet = new Set(player.roles || []);
+    // Use Map.set() to add the new policies
+    auth.acceptedPolicies.set('content-license', +contentLicense.version); 
+    auth.acceptedPolicies.set('storyweaver-policy', +storyweaverPolicy.version);
+
+    await auth.save();
+
+    const roleSet = new Set(playerProfile.roles || []);
     roleSet.add('storyweaver');
 
-    player.roles = Array.from(roleSet) as any;
-    player.storyweaverSettings = {
-      ...(player.storyweaverSettings || {}),
+    playerProfile.roles = Array.from(roleSet) as any;
+    playerProfile.storyweaverSettings = {
+      ...(playerProfile.storyweaverSettings || {}),
       officialLoreOptIn,
       enabledAt: new Date(),
     };
 
-    await player.save();
+    await playerProfile.save();
 
     return {
       acceptedPolicies: auth.acceptedPolicies,
-      profile: player,
+      profile: playerProfile,
     };
   }
 }

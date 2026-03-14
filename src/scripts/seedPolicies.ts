@@ -23,36 +23,38 @@ const policies: SeedPolicy[] = [
     version: VERSION,
     effective_date: EFFECTIVE_DATE,
     content: `
-# Tapestry Terms of Service
+<h1>Tapestry Terms of Service</h1>
 
-Welcome to Tapestry.
+<p>Welcome to Tapestry.</p>
 
-By using Tapestry, you agree to use the platform lawfully, respectfully, and in a way that does not harm the platform, its users, or its community.
+<p>By using Tapestry, you agree to use the platform lawfully, respectfully, and in a way that does not harm the platform, its users, or its community.</p>
 
-## 1. Accounts
-You are responsible for your account, your login credentials, and activity that occurs under your account.
+<h2>1. Accounts</h2>
+<p>You are responsible for your account, your login credentials, and activity that occurs under your account.</p>
 
-## 2. Platform Use
-You may use Tapestry to create characters, campaigns, settings, custom content, and related materials for personal or community use within the platform.
+<h2>2. Platform Use</h2>
+<p>You may use Tapestry to create characters, campaigns, settings, custom content, and related materials for personal or community use within the platform.</p>
 
-You may not use Tapestry to:
-- violate the law
-- harass, threaten, or abuse others
-- upload malicious code
-- exploit or disrupt the platform
-- upload content you do not have the right to use
+<p>You may not use Tapestry to:</p>
+<ul>
+<li>violate the law</li>
+<li>harass, threaten, or abuse others</li>
+<li>upload malicious code</li>
+<li>exploit or disrupt the platform</li>
+<li>upload content you do not have the right to use</li>
+</ul>
 
-## 3. Platform Changes
-Tapestry may update, improve, suspend, or remove features at any time.
+<h2>3. Platform Changes</h2>
+<p>Tapestry may update, improve, suspend, or remove features at any time.</p>
 
-## 4. Termination
-Tapestry may suspend or terminate accounts that violate these terms or abuse the platform.
+<h2>4. Termination</h2>
+<p>Tapestry may suspend or terminate accounts that violate these terms or abuse the platform.</p>
 
-## 5. Disclaimer
-Tapestry is provided as-is and may change over time as the product evolves.
+<h2>5. Disclaimer</h2>
+<p>Tapestry is provided as-is and may change over time as the product evolves.</p>
 
-## 6. Contact
-Questions about these terms may be directed to Tapestry support.
+<h2>6. Contact</h2>
+<p>Questions about these terms may be directed to Tapestry support.</p>
     `.trim(),
   },
   {
@@ -61,40 +63,44 @@ Questions about these terms may be directed to Tapestry support.
     version: VERSION,
     effective_date: EFFECTIVE_DATE,
     content: `
-# Tapestry Privacy Policy
+<h1>Tapestry Privacy Policy</h1>
 
-Tapestry values your privacy.
+<p>Tapestry values your privacy.</p>
 
-## 1. Information We Collect
-Tapestry may collect:
-- account details such as email address
-- profile details you choose to provide
-- platform usage data
-- device and browser information
-- notification preferences and related delivery metadata
+<h2>1. Information We Collect</h2>
+<p>Tapestry may collect:</p>
+<ul>
+<li>account details such as email address</li>
+<li>profile details you choose to provide</li>
+<li>platform usage data</li>
+<li>device and browser information</li>
+<li>notification preferences and related delivery metadata</li>
+</ul>
 
-## 2. How We Use Information
-Tapestry may use your information to:
-- operate and secure the platform
-- authenticate users
-- support campaigns, character tools, and Storyweaver tools
-- improve product quality and reliability
-- communicate important service updates
+<h2>2. How We Use Information</h2>
+<p>Tapestry may use your information to:</p>
+<ul>
+<li>operate and secure the platform</li>
+<li>authenticate users</li>
+<li>support campaigns, character tools, and Storyweaver tools</li>
+<li>improve product quality and reliability</li>
+<li>communicate important service updates</li>
+</ul>
 
-## 3. Notifications
-If you enable email, SMS, or push notifications, Tapestry may store related settings and technical delivery data needed to provide those notifications.
+<h2>3. Notifications</h2>
+<p>If you enable email, SMS, or push notifications, Tapestry may store related settings and technical delivery data needed to provide those notifications.</p>
 
-## 4. Sharing
-Tapestry does not sell your personal information. Information may be shared with service providers only as necessary to operate the platform.
+<h2>4. Sharing</h2>
+<p>Tapestry does not sell your personal information. Information may be shared with service providers only as necessary to operate the platform.</p>
 
-## 5. Data Retention
-Tapestry may retain information for operational, legal, security, and backup purposes.
+<h2>5. Data Retention</h2>
+<p>Tapestry may retain information for operational, legal, security, and backup purposes.</p>
 
-## 6. Your Choices
-You may update account information, profile data, and notification preferences through the platform where available.
+<h2>6. Your Choices</h2>
+<p>You may update account information, profile data, and notification preferences through the platform where available.</p>
 
-## 7. Updates
-This policy may change over time. Continued use of Tapestry may require acceptance of updated versions.
+<h2>7. Updates</h2>
+<p>This policy may change over time. Continued use of Tapestry may require acceptance of updated versions.</p>
     `.trim(),
   },
   {
@@ -103,22 +109,22 @@ This policy may change over time. Continued use of Tapestry may require acceptan
     version: VERSION,
     effective_date: EFFECTIVE_DATE,
     content: `
-# Tapestry Content License Policy
+<h1>Tapestry Content License Policy</h1>
 
-## 1. Ownership
-You retain ownership of the custom content you create in Tapestry.
+<h2>1. Ownership</h2>
+<p>You retain ownership of the custom content you create in Tapestry.</p>
 
-## 2. Platform License
-By creating, uploading, storing, or sharing content through Tapestry, you grant Tapestry a non-exclusive, worldwide, royalty-free license to host, store, reproduce, display, adapt, format, back up, and distribute that content as needed to operate, secure, improve, and promote the Tapestry platform.
+<h2>2. Platform License</h2>
+<p>By creating, uploading, storing, or sharing content through Tapestry, you grant Tapestry a non-exclusive, worldwide, royalty-free license to host, store, reproduce, display, adapt, format, back up, and distribute that content as needed to operate, secure, improve, and promote the Tapestry platform.</p>
 
-## 3. Scope
-This license is limited to platform-related purposes and does not transfer ownership of your content to Tapestry.
+<h2>3. Scope</h2>
+<p>This license is limited to platform-related purposes and does not transfer ownership of your content to Tapestry.</p>
 
-## 4. Responsibility
-You are responsible for making sure you have the rights to any content you upload or create through the platform.
+<h2>4. Responsibility</h2>
+<p>You are responsible for making sure you have the rights to any content you upload or create through the platform.</p>
 
-## 5. Removal
-If you remove content or close your account, Tapestry may retain copies as needed for backups, legal compliance, abuse prevention, and platform integrity.
+<h2>5. Removal</h2>
+<p>If you remove content or close your account, Tapestry may retain copies as needed for backups, legal compliance, abuse prevention, and platform integrity.</p>
     `.trim(),
   },
   {
@@ -127,30 +133,30 @@ If you remove content or close your account, Tapestry may retain copies as neede
     version: VERSION,
     effective_date: EFFECTIVE_DATE,
     content: `
-# Storyweaver Policy
+<h1>Storyweaver Policy</h1>
 
-Storyweaver tools allow users to create and manage campaigns, custom content, and homebrew material inside Tapestry.
+<p>Storyweaver tools allow users to create and manage campaigns, custom content, and homebrew material inside Tapestry.</p>
 
-## 1. Storyweaver Access
-By enabling Storyweaver access, you acknowledge that Storyweaver tools may allow you to create campaigns, settings, denizens, items, lore, and other custom content.
+<h2>1. Storyweaver Access</h2>
+<p>By enabling Storyweaver access, you acknowledge that Storyweaver tools may allow you to create campaigns, settings, denizens, items, lore, and other custom content.</p>
 
-## 2. Ownership
-You retain ownership of the custom content you create as a Storyweaver.
+<h2>2. Ownership</h2>
+<p>You retain ownership of the custom content you create as a Storyweaver.</p>
 
-## 3. Platform License
-By using Storyweaver tools, you grant Tapestry a non-exclusive, worldwide, royalty-free license to host, store, display, reproduce, adapt, and distribute your Storyweaver-created content as needed to operate, secure, improve, back up, and promote the Tapestry platform.
+<h2>3. Platform License</h2>
+<p>By using Storyweaver tools, you grant Tapestry a non-exclusive, worldwide, royalty-free license to host, store, display, reproduce, adapt, and distribute your Storyweaver-created content as needed to operate, secure, improve, back up, and promote the Tapestry platform.</p>
 
-## 4. Official Lore Consideration
-Tapestry may review Storyweaver-created content for inspiration, community spotlights, or possible official consideration.
-Unless otherwise stated by a separate agreement, this policy alone does not transfer ownership of your content to Tapestry.
+<h2>4. Official Lore Consideration</h2>
+<p>Tapestry may review Storyweaver-created content for inspiration, community spotlights, or possible official consideration.
+Unless otherwise stated by a separate agreement, this policy alone does not transfer ownership of your content to Tapestry.</p>
 
-If Tapestry ever wants to directly incorporate substantial Storyweaver-created material into official canon, published setting material, or commercial products beyond normal platform use, Tapestry may request additional permission or terms.
+<p>If Tapestry ever wants to directly incorporate substantial Storyweaver-created material into official canon, published setting material, or commercial products beyond normal platform use, Tapestry may request additional permission or terms.</p>
 
-## 5. Community and Safety
-Storyweaver content must follow Tapestry's platform rules, community standards, and applicable laws.
+<h2>5. Community and Safety</h2>
+<p>Storyweaver content must follow Tapestry's platform rules, community standards, and applicable laws.</p>
 
-## 6. Policy Updates
-If this policy changes, Storyweavers may be required to review and accept the updated version before continuing to use Storyweaver tools.
+<h2>6. Policy Updates</h2>
+<p>If this policy changes, Storyweavers may be required to review and accept the updated version before continuing to use Storyweaver tools.</p>
     `.trim(),
   },
 ];
