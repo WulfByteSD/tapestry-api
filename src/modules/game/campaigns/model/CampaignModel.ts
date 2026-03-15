@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-export type CampaignStatus = "active" | "archived";
+export type CampaignStatus = "active" | "archived" | "draft";
 export type CampaignRole = "sw" | "co-sw" | "player" | "observer";
 
 export type DiscordMode = "none" | "webhook" | "bot";
@@ -150,7 +150,7 @@ const DiscordConfigSchema = new mongoose.Schema(
 const CampaignSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
-    status: { type: String, enum: ["active", "archived"], default: "active" },
+    status: { type: String, enum: ["active", "archived", "draft"], default: "draft" },
 
     owner: { type: mongoose.Schema.Types.ObjectId, ref: "Player", required: true },
     members: { type: [CampaignMemberSchema], default: [] },
