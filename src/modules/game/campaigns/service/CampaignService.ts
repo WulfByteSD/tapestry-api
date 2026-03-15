@@ -5,6 +5,7 @@ import { CampaignHandler } from '../handlers/Campaign.handler';
 import CampaignModel from '../model/CampaignModel';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import asyncHandler from '../../../../middleware/asyncHandler';
+import error from '../../../../middleware/error';
 
 type CampaignInput = {
   owner: string;

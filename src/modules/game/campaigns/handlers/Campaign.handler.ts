@@ -191,9 +191,9 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
     }
   }
 
-  async fetchSingle(id: string): Promise<CampaignType | null> {
+  async fetch(id: string): Promise<CampaignType | null> {
     try {
-      const campaign = await this.Schema.findById(id).populate('owner', 'displayName avatar').populate('members.player', 'displayName avatar');
+      const campaign = await this.Schema.findById(id).populate('owner', 'displayName avatar timezone').populate('members.player', 'displayName avatar timezone').lean();
 
       if (!campaign) {
         throw new ErrorUtil('Campaign not found', 404);
