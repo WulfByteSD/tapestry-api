@@ -22,6 +22,11 @@ router.route('/').post(service.create).get(service.getResources);
 
 router.route('/:id').get(service.getResource).put(service.updateResource).delete(service.removeResource);
 
+
+// specific routes for campaigns
+// router.route("/plublic").get(service.getPublicCampaigns);
+
+
 // Member management in campaigns
 router.route('/:id/members').post(service.addMember);
 
