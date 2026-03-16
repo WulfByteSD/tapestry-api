@@ -54,42 +54,7 @@ class DevTool {
     console.info('\n📈 Database Statistics:');
     console.info('------------------------');
 
-    try {
-      const athleteCount = await this.modelMap['athlete'].countDocuments();
-      const adminCount = await this.modelMap['admin'].countDocuments();
-      const scoutReportCount = await this.modelMap['scout_report'].countDocuments();
-
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      // 1. Count conversations started by teams in the last 30 days
-      const conversationsStarted = await this.modelMap['conversation'].countDocuments({
-        createdAt: { $gte: thirtyDaysAgo },
-      });
-      console.info(`- Conversations started by teams in last 30 days: ${conversationsStarted}`);
-      const messagesSent = await this.modelMap['message'].countDocuments({
-        createdAt: { $gte: thirtyDaysAgo },
-      });
-      console.info(`- Messages sent in last 30 days: ${messagesSent}`);
-      // 2. Count recent athlete profiles created in the last 30 days
-      const recentAthleteProfiles = await this.modelMap['athlete'].countDocuments({
-        createdAt: { $gte: thirtyDaysAgo },
-      });
-      console.info(`- Recent athlete profiles created in last 30 days: ${recentAthleteProfiles}`);
-
-      // 3. Total projected revenue from active subscriptions
-      const activeSubscriptions = await this.modelMap['billing']
-        .find({
-          status: 'active',
-          plan: { $ne: null },
-        })
-        .populate('plan');
-      const totalProjectedRevenue = activeSubscriptions.reduce((acc, sub) => {
-        return acc + sub.plan.price;
-      }, 0);
-      console.info(`- Total projected revenue from active subscriptions: $${totalProjectedRevenue}`);
-      console.info(`Athletes: ${athleteCount}`);
-      console.info(`Admins: ${adminCount}`);
-      console.info(`Scout Reports: ${scoutReportCount}`);
+    try { 
       // Add more stats as needed
       console.info('------------------------\n');
     } catch (error) {

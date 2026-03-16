@@ -1,9 +1,9 @@
-import axios from 'axios';
-import { AuthType } from '../models/User';
+import axios from 'axios'; 
+import { AuthType } from '../../auth/model/Auth';
 
 export class PaymentHandler {
   async createVault(
-    user: AuthType,
+    auth: AuthType,
     billingDetails: {
       creditCardDetails?: {
         ccnumber?: string;
@@ -31,7 +31,7 @@ export class PaymentHandler {
     try {
       // send a request to pyre to create a customer in the api
       const { data } = await axios.post(
-        `${process.env.PYRE_API_URL}/vault/${user.customerId}`,
+        `${process.env.PYRE_API_URL}/vault/${auth.customerId}`,
         {
           ...billingDetails,
         },
@@ -55,16 +55,16 @@ export class PaymentHandler {
       };
     }
   }
-  async createCustomer(user: AuthType) {
+  async createCustomer(auth: AuthType) {
     try {
       // send a request to pyre to create a customer in the api
       const { data } = await axios.post(
         `${process.env.PYRE_API_URL}/customer`,
         {
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          phone: user.phoneNumber,
+          email: auth.email,
+          // firstName: auth.firstName,
+          // lastName: auth.lastName,
+          // phone: auth.phoneNumber,
         },
         {
           headers: {
