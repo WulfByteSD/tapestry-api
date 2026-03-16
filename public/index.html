@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tapestry API - Interactive Storytelling Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          'Inter',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+        background:
+          radial-gradient(900px 500px at 20% -10%, rgb(109, 62, 191, 0.38), transparent 60%), radial-gradient(800px 500px at 110% 0%, rgb(212, 175, 55, 0.18), transparent 55%),
+          linear-gradient(180deg, #14002b, #14002b);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        color: #f5f1ff;
+      }
+
+      .container {
+        background: rgba(29, 4, 61, 0.85);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+        text-align: center;
+        border: 1px solid rgba(200, 182, 230, 0.2);
+      }
+
+      .logo {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #6d3ebf 0%, #d4af37 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 32px;
+        color: white;
+        font-weight: 600;
+      }
+
+      h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #d4af37 0%, #f2d06b 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 10px;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        font-size: 1.1rem;
+        color: #c8b6e6;
+        margin-bottom: 30px;
+        font-weight: 400;
+      }
+
+      .status-card {
+        background: rgba(42, 11, 82, 0.5);
+        border: 2px solid rgba(200, 182, 230, 0.3);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 30px;
+      }
+
+      .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        color: #f2d06b;
+        margin-bottom: 10px;
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        background: #d4af37;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
+      .timestamp {
+        font-size: 0.9rem;
+        color: #c8b6e6;
+        font-family: 'Monaco', 'Menlo', monospace;
+      }
+
+      .api-info {
+        background: linear-gradient(135deg, rgba(109, 62, 191, 0.2), rgba(212, 175, 55, 0.15));
+        border: 1px solid rgba(212, 175, 55, 0.4);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+
+      .api-version {
+        font-size: 0.9rem;
+        color: #f2d06b;
+        font-weight: 500;
+      }
+
+      .footer {
+        font-size: 0.85rem;
+        color: #c8b6e6;
+        border-top: 1px solid rgba(200, 182, 230, 0.3);
+        padding-top: 20px;
+        margin-top: 20px;
+      }
+
+      .footer a {
+        color: #f2d06b;
+        text-decoration: none;
+      }
+
+      .footer a:hover {
+        text-decoration: underline;
+      }
+
+      .homepage-button {
+        display: inline-block;
+        background: linear-gradient(135deg, #6d3ebf 0%, #d4af37 100%);
+        color: white;
+        text-decoration: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin: 15px 0;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+      }
+
+      .homepage-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(212, 175, 55, 0.5);
+        text-decoration: none;
+      }
+
+      @media (max-width: 480px) {
+        .container {
+          padding: 30px 20px;
+        }
+
+        h1 {
+          font-size: 2rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo">🎭</div>
+
+      <h1>Tapestry</h1>
+      <p class="subtitle">Interactive Storytelling Platform API</p>
+
+      <div class="status-card">
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          API Status: Online & Ready
+        </div>
+        <div class="timestamp" id="timestamp">Loading...</div>
+      </div>
+
+      <div class="api-info">
+        <div class="api-version">API Version 1.0 | Tapestry RPG Platform</div>
+      </div>
+
+      <a href="#" class="homepage-button" style="opacity: 0.5; cursor: not-allowed"> Coming Soon </a>
+
+      <div class="footer">
+        <p>Weaving interactive narratives and epic adventures</p>
+        <p><a href="/api/v1" target="_blank">View API Documentation</a> | Built for storytellers and adventurers</p>
+      </div>
+    </div>
+
+    <script>
+      function updateTimestamp() {
+        const now = new Date();
+        const options = {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          timeZoneName: 'short',
+        };
+
+        document.getElementById('timestamp').textContent = `Last Updated: ${now.toLocaleDateString('en-US', options)}`;
+      }
+
+      // Update timestamp immediately and then every second
+      updateTimestamp();
+      setInterval(updateTimestamp, 1000);
+    </script>
+  </body>
+</html>
