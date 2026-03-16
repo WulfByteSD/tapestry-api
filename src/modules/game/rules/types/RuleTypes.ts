@@ -67,7 +67,7 @@ export interface CharacterRuleData {
  */
 export const ASPECT_MIN = -2;
 export const ASPECT_MAX = 4;
-export const THREADS_MIN = 0;
+export const THREADS_MIN = 3;
 export const THREADS_MAX = 5;
 export const BASE_HP = 12;
 

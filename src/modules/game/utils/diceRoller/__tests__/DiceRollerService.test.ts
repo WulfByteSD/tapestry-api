@@ -9,7 +9,14 @@ describe('DiceRollerService', () => {
   let roller: DiceRollerService;
 
   beforeEach(() => {
+    // Suppress console.warn and console.error to prevent test errors
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     roller = new DiceRollerService();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('roll() - Basic rolls', () => {

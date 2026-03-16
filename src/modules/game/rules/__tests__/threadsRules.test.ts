@@ -68,8 +68,8 @@ describe('Threads Rules', () => {
       };
 
       enforceThreadsRange(character);
-      expect(character.threads.current).toBe(THREADS_MIN);
-      expect(character.threads.max).toBe(THREADS_MIN);
+      expect(character.threads.current).toBe(0);
+      expect(character.threads.max).toBe(3); // enforces the minimum max
     });
 
     it('should not modify valid thread values', () => {
