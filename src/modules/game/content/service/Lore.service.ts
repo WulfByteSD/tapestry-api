@@ -23,19 +23,27 @@ export default class LoreService extends CRUDService {
   }
 
   /**
-   * Get lore tree for a specific setting
    * GET /tree/:settingKey
    */
   getTreeForSetting = asyncHandler(async (req: Request, res: Response) => {
     try {
-      const { settingKey } = req.params;
+      const settingKey = String(req.params.settingKey || '').trim();
 
-      // TODO: Implement tree structure logic
+      if (!settingKey) {
+        return res.status(400).json({
+          success: false,
+          message: 'settingKey is required',
+        });
+      }
+
       const result = await this.loreHandler.fetchTreeForSetting(settingKey);
 
       return res.status(200).json({
         success: true,
         payload: result,
+        metadata: {
+          rootCount: result.length,
+        },
       });
     } catch (err) {
       console.error(err);
@@ -44,19 +52,27 @@ export default class LoreService extends CRUDService {
   });
 
   /**
-   * Get children nodes for a specific parent
    * GET /children/:parentId
    */
   getChildrenForNode = asyncHandler(async (req: Request, res: Response) => {
     try {
-      const { parentId } = req.params;
+      const parentId = String(req.params.parentId || '').trim();
 
-      // TODO: Implement children fetching logic
+      if (!parentId) {
+        return res.status(400).json({
+          success: false,
+          message: 'parentId is required',
+        });
+      }
+
       const result = await this.loreHandler.fetchChildrenForNode(parentId);
 
       return res.status(200).json({
         success: true,
         payload: result,
+        metadata: {
+          childCount: result.length,
+        },
       });
     } catch (err) {
       console.error(err);
@@ -65,14 +81,20 @@ export default class LoreService extends CRUDService {
   });
 
   /**
-   * Get a lore node by setting key and node key
    * GET /by-key/:settingKey/:key
    */
   getBySettingAndKey = asyncHandler(async (req: Request, res: Response) => {
     try {
-      const { settingKey, key } = req.params;
+      const settingKey = String(req.params.settingKey || '').trim();
+      const key = String(req.params.key || '').trim();
 
-      // TODO: Implement fetch by setting and key logic
+      if (!settingKey || !key) {
+        return res.status(400).json({
+          success: false,
+          message: 'settingKey and key are required',
+        });
+      }
+
       const result = await this.loreHandler.fetchBySettingAndKey(settingKey, key);
 
       if (!result) {
