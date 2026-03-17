@@ -95,8 +95,8 @@ export class AuthenticationHandler {
         _id: foundUser._id,
         email: foundUser.email, 
         profileRefs: {
+          ...foundUser.profileRefs,
           player: playerProfile ? playerProfile._id : null,
-          admin: undefined, // to be implemented when admin profiles are added
         },
         roles: foundUser.role,
         acceptedPolicies: foundUser.acceptedPolicies || {},

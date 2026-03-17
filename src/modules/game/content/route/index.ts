@@ -17,5 +17,6 @@ router.use('/settings', settingsRoutes);
 router.use('/items', itemsRoutes);
 router.use('/skills', skillsRoutes);
 router.use('/abilities', abilityRoutes);
+router.use('/lore', require('./lore').default);
 
 export default router;
