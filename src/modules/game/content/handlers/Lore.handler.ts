@@ -174,10 +174,7 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
       })
         .sort({ sortOrder: 1, name: 1 })
         .select('_id key name kind status settingKey parentId ancestorIds depth sortOrder tags summary body relations meta createdAt updatedAt target')
-        .populate({
-          path: 'relations.target',
-          select: '_id key name kind status',
-        })
+
         .lean(),
     ]);
 
