@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { LoreNodeType } from '../model/LoreNodeModel';
+import LoreNodeModel, { LoreNodeType } from '../model/LoreNodeModel';
 
 export type MongoIdLike = mongoose.Types.ObjectId | string | null | undefined;
 
@@ -78,4 +78,37 @@ export function toRef(node: Partial<LoreNodeType> | null | undefined): LoreNodeR
     kind: node.kind,
     status: node.status as LoreNodeRef['status'],
   };
+}
+
+/**
+ * Populate relation targets with node context
+ */
+export async function populateRelationTargets(relations: Array<{ targetId: string; [key: string]: any }>, settingKey?: string): Promise<Array<any>> {
+  if (!relations || relations.length === 0) {
+    return [];
+  }
+
+  const targetIds = relations.map((rel) => new mongoose.Types.ObjectId(rel.targetId)).filter(Boolean);
+
+  if (targetIds.length === 0) {
+    return relations.map((rel) => ({ ...rel, target: null }));
+  }
+
+  const query: any = {
+    _id: { $in: targetIds },
+    status: { $ne: 'archived' },
+  };
+
+  if (settingKey) {
+    query.settingKey = settingKey;
+  }
+
+  const targets = await LoreNodeModel.find(query).select('_id key name kind status').lean();
+
+  const targetMap = new Map(targets.map((target) => [String(target._id), toRef(target as Partial<LoreNodeType>)]));
+
+  return relations.map((rel) => ({
+    ...rel,
+    target: targetMap.get(String(rel.targetId)) || null,
+  }));
 }

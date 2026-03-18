@@ -3,7 +3,7 @@ import { CRUDHandler } from '../../../../utils/baseCRUD';
 import LoreNodeModel, { LoreNodeType } from '../model/LoreNodeModel';
 import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import { resolveLoreRelations } from '../util/resolveLoreRelations';
-import { toIdString, normalizeNode, sortTree, toRef, LoreTreeNode, LoreNodeRef } from '../util/loreTreeHelpers';
+import { toIdString, normalizeNode, sortTree, toRef, populateRelationTargets, LoreTreeNode, LoreNodeRef } from '../util/loreTreeHelpers';
 import loreHierarchyService from '../service/LoreHierarchyService';
 
 type FocusedLoreTreeNode = LoreTreeNode & {
@@ -11,8 +11,23 @@ type FocusedLoreTreeNode = LoreTreeNode & {
   isLineage: boolean;
 };
 
+type LoreNodeDetail = LoreNodeRef & {
+  relations?: Array<{
+    type: string;
+    targetId: string;
+    targetKey?: string;
+    label?: string;
+    notes?: string;
+    target: LoreNodeRef | null;
+  }>;
+  summary?: string;
+  body?: string;
+  tags?: string[];
+  meta?: any;
+};
+
 export type FocusedLoreContext = {
-  focus: LoreNodeRef;
+  focus: LoreNodeDetail;
   lineage: LoreNodeRef[];
   tree: FocusedLoreTreeNode;
   metadata: {
@@ -22,7 +37,7 @@ export type FocusedLoreContext = {
   };
 };
 
-export type { LoreTreeNode, LoreNodeRef };
+export type { LoreTreeNode, LoreNodeRef, LoreNodeDetail };
 
 export default class LoreHandler extends CRUDHandler<LoreNodeType> {
   constructor() {
@@ -87,6 +102,11 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
 
     const normalizedFocus = normalizeNode(focusNode as LoreNodeType);
     const ancestorIds = normalizedFocus.ancestorIds ?? [];
+
+    // Populate relations for the focus node
+    if (normalizedFocus.relations && normalizedFocus.relations.length > 0) {
+      normalizedFocus.relations = await populateRelationTargets(normalizedFocus.relations as any[], normalizedFocus.settingKey);
+    }
 
     const [ancestorDocs, descendantDocs, groupedCounts] = await Promise.all([
       ancestorIds.length
@@ -153,8 +173,15 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
       .filter(Boolean)
       .map((doc) => normalizeNode(doc as LoreNodeType, childCountMap.get(String(doc!._id)) || 0));
 
+    const focusTreeNodeBase = normalizeNode(focusNode as LoreNodeType, childCountMap.get(String(focusNode._id)) || 0);
+
+    // Ensure relations are populated on the focus tree node as well
+    if (focusTreeNodeBase.relations && focusTreeNodeBase.relations.length > 0) {
+      focusTreeNodeBase.relations = await populateRelationTargets(focusTreeNodeBase.relations as any[], focusTreeNodeBase.settingKey);
+    }
+
     const focusTreeNode = {
-      ...normalizeNode(focusNode as LoreNodeType, childCountMap.get(String(focusNode._id)) || 0),
+      ...focusTreeNodeBase,
       isFocus: true,
       isLineage: true,
     } as FocusedLoreTreeNode;
@@ -196,8 +223,18 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
 
     const rootNode = lineageTreeNodes[0] ?? focusTreeNode;
 
+    // Create detailed focus node with populated relations
+    const focusDetail: LoreNodeDetail = {
+      ...toRef(focusNode as Partial<LoreNodeType>)!,
+      relations: normalizedFocus.relations as any,
+      summary: normalizedFocus.summary,
+      body: normalizedFocus.body,
+      tags: normalizedFocus.tags,
+      meta: normalizedFocus.meta,
+    };
+
     return {
-      focus: toRef(focusNode as Partial<LoreNodeType>)!,
+      focus: focusDetail,
       lineage: [...lineageTreeNodes.map((node) => toRef(node as unknown as Partial<LoreNodeType>)!).filter(Boolean), toRef(focusNode as Partial<LoreNodeType>)!],
       tree: rootNode,
       metadata: {
