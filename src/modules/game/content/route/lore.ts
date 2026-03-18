@@ -10,6 +10,7 @@ router.use(AuthMiddleware.protect);
 router.get('/', service.getResources);
 router.get('/tree/:settingKey', service.getTreeForSetting);
 router.get('/children/:parentId', service.getChildrenForNode);
+router.get('/context/:id', service.getFocusedContext);
 router.get('/by-key/:settingKey/:key', service.getBySettingAndKey);
 router.get('/:id', service.getResource);
 

@@ -23,6 +23,45 @@ export default class LoreService extends CRUDService {
   }
 
   /**
+   * GET /context/:id?descendantDepth=2
+   */
+  getFocusedContext = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const id = String(req.params.id || '').trim();
+
+      if (!id) {
+        return res.status(400).json({
+          success: false,
+          message: 'id is required',
+        });
+      }
+
+      const rawDepth = Number(req.query.descendantDepth ?? 2);
+      const descendantDepth = Number.isFinite(rawDepth) ? Math.max(1, Math.min(3, Math.floor(rawDepth))) : 2;
+
+      const result = await this.loreHandler.fetchFocusedContext(id, descendantDepth);
+
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          message: 'Lore node not found',
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        payload: result,
+        metadata: {
+          descendantDepth,
+          focusId: id,
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      return error(err, req, res);
+    }
+  });
+  /**
    * GET /tree/:settingKey
    */
   getTreeForSetting = asyncHandler(async (req: Request, res: Response) => {

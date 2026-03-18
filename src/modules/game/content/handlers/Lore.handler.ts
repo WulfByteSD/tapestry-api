@@ -3,50 +3,34 @@ import { CRUDHandler } from '../../../../utils/baseCRUD';
 import LoreNodeModel, { LoreNodeType } from '../model/LoreNodeModel';
 import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import { resolveLoreRelations } from '../util/resolveLoreRelations';
+import { toIdString, normalizeNode, sortTree, toRef, LoreTreeNode, LoreNodeRef } from '../util/loreTreeHelpers';
+import loreHierarchyService from '../service/LoreHierarchyService';
 
-type MongoIdLike = mongoose.Types.ObjectId | string | null | undefined;
-
-export type LoreTreeNode = Omit<LoreNodeType, '_id' | 'parentId' | 'ancestorIds'> & {
-  _id: string;
-  parentId: string | null;
-  ancestorIds: string[];
-  children: LoreTreeNode[];
-  childCount: number;
-  hasChildren: boolean;
-  isRoot: boolean;
+type FocusedLoreTreeNode = LoreTreeNode & {
+  isFocus: boolean;
+  isLineage: boolean;
 };
 
-type LoreNodeRef = {
-  _id: string;
-  key: string;
-  name: string;
-  kind: string;
-  status: 'draft' | 'published' | 'archived';
+export type FocusedLoreContext = {
+  focus: LoreNodeRef;
+  lineage: LoreNodeRef[];
+  tree: FocusedLoreTreeNode;
+  metadata: {
+    descendantDepth: number;
+    rootId: string;
+    focusId: string;
+  };
 };
+
+export type { LoreTreeNode, LoreNodeRef };
 
 export default class LoreHandler extends CRUDHandler<LoreNodeType> {
   constructor() {
     super(LoreNodeModel);
   }
-  protected async beforeCreate(data: any): Promise<void> {
-    const settingKey = String(data.settingKey || '').trim();
-
-    if (!settingKey) {
-      throw new ErrorUtil('settingKey is required for lore creation', 400);
-    }
-
-    data.settingKey = settingKey;
-    data.key = String(data.key || '')
-      .trim()
-      .toLowerCase();
-    data.relations = await resolveLoreRelations({
-      settingKey,
-      relations: data.relations,
-    });
-  }
 
   protected async beforeUpdate(id: string, data: any): Promise<void> {
-    const currentNode = await this.Schema.findById(id).select('_id settingKey key');
+    const currentNode = await this.Schema.findById(id).select('_id settingKey key parentId ancestorIds depth');
 
     if (!currentNode) {
       throw new ErrorUtil('Lore node not found', 404);
@@ -58,8 +42,17 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
       throw new ErrorUtil('settingKey is required for lore update', 400);
     }
 
+    data.settingKey = effectiveSettingKey;
+
     if (typeof data.key === 'string') {
       data.key = data.key.trim().toLowerCase();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(data, 'parentId') || Object.prototype.hasOwnProperty.call(data, 'settingKey')) {
+      await loreHierarchyService.applyHierarchyFields(data, {
+        currentNodeId: id,
+        fallbackSettingKey: effectiveSettingKey,
+      });
     }
 
     if (Object.prototype.hasOwnProperty.call(data, 'relations')) {
@@ -69,6 +62,150 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
         currentNodeId: id,
       });
     }
+  }
+
+  protected async afterUpdate(doc: any | null): Promise<void> {
+    if (!doc?._id) return;
+    await loreHierarchyService.rebuildDescendantHierarchy(String(doc._id));
+  }
+
+  async fetchFocusedContext(nodeId: string, descendantDepth = 2): Promise<FocusedLoreContext | null> {
+    if (!mongoose.Types.ObjectId.isValid(nodeId)) {
+      throw new ErrorUtil('Invalid lore node id', 400);
+    }
+
+    const normalizedNodeId = new mongoose.Types.ObjectId(nodeId);
+
+    const focusNode = await LoreNodeModel.findOne({
+      _id: normalizedNodeId,
+      status: { $ne: 'archived' },
+    }).lean();
+
+    if (!focusNode) {
+      return null;
+    }
+
+    const normalizedFocus = normalizeNode(focusNode as LoreNodeType);
+    const ancestorIds = normalizedFocus.ancestorIds ?? [];
+
+    const [ancestorDocs, descendantDocs, groupedCounts] = await Promise.all([
+      ancestorIds.length
+        ? LoreNodeModel.find({
+            _id: { $in: ancestorIds.map((id) => new mongoose.Types.ObjectId(id)) },
+            status: { $ne: 'archived' },
+          })
+            .sort({ depth: 1, sortOrder: 1, name: 1 })
+            .lean()
+        : [],
+      LoreNodeModel.find({
+        settingKey: normalizedFocus.settingKey,
+        status: { $ne: 'archived' },
+        ancestorIds: normalizedNodeId as any,
+        depth: { $lte: normalizedFocus.depth + descendantDepth },
+      })
+        .sort({ depth: 1, sortOrder: 1, name: 1 })
+        .lean(),
+      LoreNodeModel.aggregate([
+        {
+          $match: {
+            status: { $ne: 'archived' },
+            $or: [
+              { _id: normalizedNodeId },
+              { _id: { $in: ancestorIds.map((id) => new mongoose.Types.ObjectId(id)) } },
+              {
+                ancestorIds: normalizedNodeId,
+                depth: { $lte: normalizedFocus.depth + descendantDepth },
+              },
+            ],
+          },
+        },
+        {
+          $project: { _id: 1 },
+        },
+      ]),
+    ]);
+
+    const includedDocs = [...ancestorDocs, focusNode, ...descendantDocs];
+
+    const includedIds = includedDocs.map((doc) => new mongoose.Types.ObjectId(String(doc._id)));
+
+    const childCounts = await LoreNodeModel.aggregate([
+      {
+        $match: {
+          parentId: { $in: includedIds },
+          status: { $ne: 'archived' },
+        },
+      },
+      {
+        $group: {
+          _id: '$parentId',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const childCountMap = new Map(childCounts.map((entry) => [String(entry._id), Number(entry.count || 0)]));
+
+    const ancestorMap = new Map(ancestorDocs.map((doc) => [String(doc._id), doc]));
+
+    const lineageNodes = ancestorIds
+      .map((id) => ancestorMap.get(id))
+      .filter(Boolean)
+      .map((doc) => normalizeNode(doc as LoreNodeType, childCountMap.get(String(doc!._id)) || 0));
+
+    const focusTreeNode = {
+      ...normalizeNode(focusNode as LoreNodeType, childCountMap.get(String(focusNode._id)) || 0),
+      isFocus: true,
+      isLineage: true,
+    } as FocusedLoreTreeNode;
+
+    const descendantNodes = descendantDocs.map((doc) => ({
+      ...normalizeNode(doc as LoreNodeType, childCountMap.get(String(doc._id)) || 0),
+      isFocus: false,
+      isLineage: false,
+    })) as FocusedLoreTreeNode[];
+
+    const lineageTreeNodes = lineageNodes.map((node) => ({
+      ...node,
+      isFocus: false,
+      isLineage: true,
+    })) as FocusedLoreTreeNode[];
+
+    const allNodes = [...lineageTreeNodes, focusTreeNode, ...descendantNodes];
+    const nodeMap = new Map(allNodes.map((node) => [node._id, node]));
+
+    for (const node of allNodes) {
+      node.children = [];
+    }
+
+    for (const node of descendantNodes) {
+      if (node.parentId && nodeMap.has(node.parentId)) {
+        nodeMap.get(node.parentId)!.children.push(node);
+      }
+    }
+
+    if (lineageTreeNodes.length > 0) {
+      for (let index = 0; index < lineageTreeNodes.length - 1; index += 1) {
+        const parent = lineageTreeNodes[index];
+        const child = lineageTreeNodes[index + 1];
+        parent.children = [child];
+      }
+
+      lineageTreeNodes[lineageTreeNodes.length - 1].children = [focusTreeNode];
+    }
+
+    const rootNode = lineageTreeNodes[0] ?? focusTreeNode;
+
+    return {
+      focus: toRef(focusNode as Partial<LoreNodeType>)!,
+      lineage: [...lineageTreeNodes.map((node) => toRef(node as unknown as Partial<LoreNodeType>)!).filter(Boolean), toRef(focusNode as Partial<LoreNodeType>)!],
+      tree: rootNode,
+      metadata: {
+        descendantDepth,
+        rootId: rootNode._id,
+        focusId: focusTreeNode._id,
+      },
+    };
   }
   /**
    * Fetch lore node tree for a specific setting
@@ -107,7 +244,7 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
     return roots;
   }
 
-  async fetchChildrenForNode(parentId: string) {
+  async fetchChildrenForNode(parentId: string): Promise<LoreTreeNode[]> {
     if (!mongoose.Types.ObjectId.isValid(parentId)) {
       throw new ErrorUtil('Invalid lore parent id', 400);
     }
@@ -146,7 +283,7 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
     return children.map((entry) => normalizeNode(entry as LoreNodeType, childCountMap.get(String(entry._id)) || 0));
   }
 
-  async fetchBySettingAndKey(settingKey: string, key: string) {
+  async fetchBySettingAndKey(settingKey: string, key: string): Promise<any> {
     const node = await LoreNodeModel.findOne({
       settingKey,
       key,
@@ -191,51 +328,4 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
       hasChildren: normalizedChildren.length > 0,
     };
   }
-}
-
-function toIdString(value: MongoIdLike): string | null {
-  if (!value) return null;
-  return typeof value === 'string' ? value : value.toString();
-}
-
-function normalizeNode(node: LoreNodeType, childCount = 0): LoreTreeNode {
-  return {
-    ...node,
-    _id: toIdString(node._id) || '',
-    parentId: toIdString(node.parentId),
-    ancestorIds: Array.isArray(node.ancestorIds) ? (node.ancestorIds.map((entry) => toIdString(entry)).filter(Boolean) as string[]) : [],
-    children: [],
-    childCount,
-    hasChildren: childCount > 0,
-    isRoot: !node.parentId,
-  } as any;
-}
-
-function sortTree(nodes: LoreTreeNode[]) {
-  nodes.sort((a, b) => {
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-    return a.name.localeCompare(b.name);
-  });
-
-  for (const node of nodes) {
-    if (node.children.length) {
-      sortTree(node.children);
-      node.childCount = node.children.length;
-      node.hasChildren = true;
-    }
-  }
-}
-
-function toRef(node: Partial<LoreNodeType> | null | undefined): LoreNodeRef | null {
-  if (!node?._id || !node.key || !node.name || !node.kind || !node.status) {
-    return null;
-  }
-
-  return {
-    _id: toIdString(node._id) || '',
-    key: node.key,
-    name: node.name,
-    kind: node.kind,
-    status: node.status as LoreNodeRef['status'],
-  };
 }
