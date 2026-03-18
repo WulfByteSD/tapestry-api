@@ -11,34 +11,98 @@ export type LoreRelationType = {
   notes?: string;
 };
 
-export type LoreMetaType = {
-  imageUrl?: string;
+type LoreNodeMedia = {
+  portraitUrl?: string;
   bannerUrl?: string;
-  coordinates?: {
-    x: number | null;
-    y: number | null;
-  };
-  regionLabel?: string;
+  tokenUrl?: string;
+  gallery?: Array<{
+    id: string;
+    url: string;
+    kind: 'image' | 'video';
+    title?: string;
+    caption?: string;
+    alt?: string;
+  }>;
+  embeds?: Array<{
+    id: string;
+    kind: 'youtube' | 'vimeo' | 'audio' | 'other';
+    url: string;
+    title?: string;
+    caption?: string;
+  }>;
 };
 
+type LoreNodeIdentity = {
+  subtitle?: string;
+  epithet?: string;
+  aliases?: string[];
+  pronunciation?: string;
+  title?: string;
+};
+type LoreNodeClassification = {
+  species?: string;
+  culture?: string;
+  occupation?: string;
+  affiliation?: string[];
+  religion?: string[];
+  region?: string;
+  settlement?: string;
+};
+type LoreNodeWorld = {
+  regionLabel?: string;
+  coordinates?: {
+    x?: number | null;
+    y?: number | null;
+  };
+  era?: string;
+  timelineNote?: string;
+};
+type LoreNodeStory = {
+  hooks?: string[];
+  rumors?: string[];
+  secrets?: string[];
+  quotes?: string[];
+  gmNotes?: string[];
+};
+type LinkedContentRef = {
+  type: 'combatant';
+  targetId: string;
+  label?: string;
+};
 export interface LoreNodeType extends mongoose.Document {
   settingKey: string;
   key: string;
   name: string;
   kind: string;
-  status: ContentStatus;
+  status: 'draft' | 'published' | 'archived';
   parentId?: string | null;
-  ancestorIds?: string[];
+  ancestorIds: string[];
   depth: number;
   sortOrder: number;
   tags: string[];
-  summary: string;
-  body: string;
+  summary?: string;
+  body?: string;
   relations: LoreRelationType[];
-  meta: LoreMetaType;
-  createdAt?: Date;
-  updatedAt?: Date;
+  linkedContent?: LinkedContentRef[];
+  meta?: {
+    media?: LoreNodeMedia;
+    identity?: LoreNodeIdentity;
+    classification?: LoreNodeClassification;
+    world?: LoreNodeWorld;
+    story?: LoreNodeStory;
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+const LinkedContentSchema = new mongoose.Schema(
+  {
+    type: { type: String, required: true, trim: true },
+    targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    label: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
 const LoreRelationSchema = new mongoose.Schema(
   {
     type: { type: String, required: true, trim: true },
@@ -52,13 +116,62 @@ const LoreRelationSchema = new mongoose.Schema(
 
 const LoreMetaSchema = new mongoose.Schema(
   {
-    imageUrl: { type: String, trim: true, default: '' },
-    bannerUrl: { type: String, trim: true, default: '' },
-    coordinates: {
-      x: { type: Number, default: null },
-      y: { type: Number, default: null },
+    media: {
+      portraitUrl: { type: String, trim: true, default: '' },
+      bannerUrl: { type: String, trim: true, default: '' },
+      tokenUrl: { type: String, trim: true, default: '' },
+      gallery: [
+        {
+          id: { type: String, required: true },
+          url: { type: String, required: true },
+          kind: { type: String, enum: ['image', 'video'], required: true },
+          title: { type: String, trim: true, default: '' },
+          caption: { type: String, trim: true, default: '' },
+          alt: { type: String, trim: true, default: '' },
+        },
+      ],
+      embeds: [
+        {
+          id: { type: String, required: true },
+          kind: { type: String, enum: ['youtube', 'vimeo', 'audio', 'other'], required: true },
+          url: { type: String, required: true },
+          title: { type: String, trim: true, default: '' },
+          caption: { type: String, trim: true, default: '' },
+        },
+      ],
     },
-    regionLabel: { type: String, trim: true, default: '' },
+    identity: {
+      subtitle: { type: String, trim: true, default: '' },
+      epithet: { type: String, trim: true, default: '' },
+      aliases: { type: [String], default: [] },
+      pronunciation: { type: String, trim: true, default: '' },
+      title: { type: String, trim: true, default: '' },
+    },
+    classification: {
+      species: { type: String, trim: true, default: '' },
+      culture: { type: String, trim: true, default: '' },
+      occupation: { type: String, trim: true, default: '' },
+      affiliation: { type: [String], default: [] },
+      religion: { type: [String], default: [] },
+      region: { type: String, trim: true, default: '' },
+      settlement: { type: String, trim: true, default: '' },
+    },
+    world: {
+      regionLabel: { type: String, trim: true, default: '' },
+      coordinates: {
+        x: { type: Number, default: null },
+        y: { type: Number, default: null },
+      },
+      era: { type: String, trim: true, default: '' },
+      timelineNote: { type: String, trim: true, default: '' },
+    },
+    story: {
+      hooks: { type: [String], default: [] },
+      rumors: { type: [String], default: [] },
+      secrets: { type: [String], default: [] },
+      quotes: { type: [String], default: [] },
+      gmNotes: { type: [String], default: [] },
+    },
   },
   { _id: false }
 );
@@ -92,6 +205,7 @@ const LoreNodeSchema = new mongoose.Schema(
       default: [],
       index: true,
     },
+    linkedContent: { type: [LinkedContentSchema], default: [] },
     depth: { type: Number, default: 0, index: true },
     sortOrder: { type: Number, default: 0 },
     tags: { type: [String], default: [] },
