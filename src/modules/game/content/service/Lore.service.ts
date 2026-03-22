@@ -3,13 +3,14 @@ import asyncHandler from '../../../../middleware/asyncHandler';
 import error from '../../../../middleware/error';
 import { CRUDService } from '../../../../utils/baseCRUD';
 import LoreHandler from '../handlers/Lore.handler';
+import LoreTreeHandler from '../handlers/LoreTree.handler';
 
 export default class LoreService extends CRUDService {
-  private loreHandler: LoreHandler;
+  private loreTreeHandler: LoreTreeHandler;
 
   constructor() {
     super(LoreHandler);
-    this.loreHandler = this.handler as LoreHandler;
+    this.loreTreeHandler = new LoreTreeHandler();
 
     this.queryKeys = ['key', 'name', 'summary', 'body', 'tags', 'kind', 'settingKey', 'status'];
 
@@ -39,7 +40,7 @@ export default class LoreService extends CRUDService {
       const rawDepth = Number(req.query.descendantDepth ?? 2);
       const descendantDepth = Number.isFinite(rawDepth) ? Math.max(1, Math.min(3, Math.floor(rawDepth))) : 2;
 
-      const result = await this.loreHandler.fetchFocusedContext(id, descendantDepth);
+      const result = await this.loreTreeHandler.fetchFocusedContext(id, descendantDepth);
 
       if (!result) {
         return res.status(404).json({
@@ -75,7 +76,7 @@ export default class LoreService extends CRUDService {
         });
       }
 
-      const result = await this.loreHandler.fetchTreeForSetting(settingKey);
+      const result = await this.loreTreeHandler.fetchTreeForSetting(settingKey);
 
       return res.status(200).json({
         success: true,
@@ -104,7 +105,7 @@ export default class LoreService extends CRUDService {
         });
       }
 
-      const result = await this.loreHandler.fetchChildrenForNode(parentId);
+      const result = await this.loreTreeHandler.fetchChildrenForNode(parentId);
 
       return res.status(200).json({
         success: true,
@@ -134,7 +135,7 @@ export default class LoreService extends CRUDService {
         });
       }
 
-      const result = await this.loreHandler.fetchBySettingAndKey(settingKey, key);
+      const result = await this.loreTreeHandler.fetchBySettingAndKey(settingKey, key);
 
       if (!result) {
         return res.status(404).json({
