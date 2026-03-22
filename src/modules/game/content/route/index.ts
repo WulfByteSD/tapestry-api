@@ -19,5 +19,7 @@ router.use('/items', itemsRoutes);
 router.use('/skills', skillsRoutes);
 router.use('/abilities', abilityRoutes);
 router.use('/lore', loreRoutes);
+router.use('/combatants', require('./combatant').default);
+router.use('/linked-content', require('./linked-content').default);
 
 export default router;

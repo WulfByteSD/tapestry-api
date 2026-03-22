@@ -13,7 +13,8 @@
     "seed:game-content": "ts-node src/scripts/seedGameContent.ts",
     "seed:abilities": "ts-node src/scripts/seedAbilities.ts",
     "seed:skills": "ts-node src/scripts/seedSkills.ts",
-    "seed:policies": "ts-node src/scripts/seedPolicies.ts"
+    "seed:policies": "ts-node src/scripts/seedPolicies.ts",
+    "seed:combatants": "ts-node src/scripts/seedCombatants.ts"
   },
   "author": "Austin Howard",
   "license": "ISC",
