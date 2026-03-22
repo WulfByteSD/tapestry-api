@@ -3,13 +3,97 @@ import mongoose from 'mongoose';
 
 export type ContentStatus = 'draft' | 'published' | 'archived';
 
+export const LORE_RELATION_TYPES = [
+  'related_to',
+  'appears_in',
+  'located_in',
+  'originates_from',
+  'ancestor_of',
+  'child_of',
+  'descended_from',
+  'parent_of',
+  'sibling_of',
+  'spouse_of',
+  'governs',
+  'rules',
+  'subject_of',
+  'leads',
+  'serves',
+  'employed_by',
+  'imprisoned_by',
+  'banished_by',
+  'under_claim_of',
+  'allied_with',
+  'loyal_to',
+  'nominally_loyal_to',
+  'supports',
+  'member_of',
+  'part_of',
+  'enemy_of',
+  'opposed_to',
+  'rival_of',
+  'betrayed_by',
+  'hunts',
+  'seeks',
+  'fears',
+  'defends',
+  'guards',
+  'protected_by',
+  'rescued_by',
+  'mentor_of',
+  'student_of',
+  'inspired_by',
+  'influences',
+  'blessed_by',
+  'cursed_by',
+  'bound_to',
+  'sealed_by',
+  'summoned_by',
+  'transformed_from',
+  'prophesied_about',
+  'witnessed_by',
+  'shadowed_by',
+  'worships',
+  'created_by',
+  'founded_by',
+  'destroyed_by',
+  'borders',
+  'neighbor_of',
+  'contains',
+  'at_foot_of',
+  'owns',
+  'trades_with',
+  'other',
+] as const;
+
+export type LoreRelationTypeValue = (typeof LORE_RELATION_TYPES)[number];
+
 export type LoreRelationType = {
-  type: string;
+  type: LoreRelationTypeValue;
   targetId: string;
   targetKey?: string;
   label?: string;
   notes?: string;
 };
+
+export const LORE_NODE_KINDS = [
+  'region',
+  'nation',
+  'province',
+  'settlement',
+  'district',
+  'landmark',
+  'faction',
+  'npc',
+  'organization',
+  'culture',
+  'religion',
+  'event',
+  'history',
+  'other',
+] as const;
+
+export type LoreNodeKind = (typeof LORE_NODE_KINDS)[number];
 
 type LoreNodeMedia = {
   portraitUrl?: string;
@@ -73,7 +157,7 @@ export interface LoreNodeType extends mongoose.Document {
   settingKey: string;
   key: string;
   name: string;
-  kind: string;
+  kind: LoreNodeKind;
   status: 'draft' | 'published' | 'archived';
   parentId?: string | null;
   ancestorIds: string[];
@@ -105,7 +189,7 @@ const LinkedContentSchema = new mongoose.Schema(
 );
 const LoreRelationSchema = new mongoose.Schema(
   {
-    type: { type: String, required: true, trim: true },
+    type: { type: String, required: true, trim: true, enum: LORE_RELATION_TYPES },
     targetId: { type: mongoose.Schema.Types.ObjectId, ref: 'LoreNode', required: true },
     targetKey: { type: String, trim: true, default: null },
     label: { type: String, trim: true, default: '' },
@@ -183,7 +267,7 @@ const LoreNodeSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     kind: {
       type: String,
-      enum: ['region', 'nation', 'province', 'settlement', 'district', 'landmark', 'faction', 'npc', 'organization', 'culture', 'religion', 'event', 'history', 'other'],
+      enum: LORE_NODE_KINDS,
       default: 'other',
       index: true,
     },
