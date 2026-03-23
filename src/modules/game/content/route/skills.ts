@@ -12,6 +12,7 @@ router.get('/by-key/:key', service.getSkillByKey);
 router.get('/setting/:settingKey', service.getSkillsForSetting);
 
 // generic CRUD reads
+router.post('/import', AuthMiddleware.authorizeRoles(['admin', 'developer', 'content:write']) as any, service.importCsv);
 router.get('/', service.getResources);
 router.get('/:id', service.getResource);
 

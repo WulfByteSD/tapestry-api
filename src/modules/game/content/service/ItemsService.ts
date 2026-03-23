@@ -3,6 +3,8 @@ import asyncHandler from '../../../../middleware/asyncHandler';
 import error from '../../../../middleware/error';
 import { CRUDService } from '../../../../utils/baseCRUD';
 import ItemDefinitionHandler from '../handlers/ItemDefinition.handler';
+import { getUploadedCsvFile, resolveImportMode, runCsvImport } from '../util/import/csvImport';
+import { itemCsvImportDefinition } from '../util/import/contentCsvDefinition';
 
 export default class ItemsService extends CRUDService {
   private itemHandler: ItemDefinitionHandler;
@@ -44,6 +46,28 @@ export default class ItemsService extends CRUDService {
       const category = typeof req.query.category === 'string' ? req.query.category : undefined;
 
       const result = await this.itemHandler.fetchBySettingKey(settingKey, category);
+
+      return res.status(200).json({
+        success: true,
+        payload: result,
+      });
+    } catch (err) {
+      console.error(err);
+      return error(err, req, res);
+    }
+  });
+  importCsv = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const file = getUploadedCsvFile(req);
+      const mode = resolveImportMode(req.query.mode);
+      const result = await runCsvImport(itemCsvImportDefinition, file, mode);
+
+      if (!result.success) {
+        return res.status(400).json({
+          success: false,
+          payload: result,
+        });
+      }
 
       return res.status(200).json({
         success: true,
