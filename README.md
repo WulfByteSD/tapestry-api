@@ -16,6 +16,7 @@ The backend API powering the Tapestry TTRPG ecosystem. Built with Node.js, Expre
 - [Testing](#testing)
 - [Database Seeding](#database-seeding)
 - [API Routes](#api-routes)
+- [Module Documentation](#module-documentation)
 - [Project Structure](#project-structure)
 
 ---
@@ -213,6 +214,23 @@ All routes are prefixed with `/api/v1`.
 | `/api/v1/admin` | Administrative profile tools |
 
 A health check is available at `/api/v1/` — it returns `200` with `{ "message": "API V1 is working" }`.
+
+---
+
+## Module Documentation
+
+Each module has its own documentation covering routes, structure, and design decisions.
+
+| Module | Description | Docs |
+|--------|-------------|------|
+| **auth** | Registration, login, password recovery, plans, billing, and legal | [auth-module.md](src/modules/auth/docs/auth-module.md) |
+| **game** | Characters, campaigns, dice rolls, content, Storyweaver tools, and the rules engine | [game-module.md](src/modules/game/game-module.md) |
+| **notification** | In-app notifications and browser push subscriptions | [notification-module.md](src/modules/notification/notification-module.md) |
+| **payment** | Billing accounts, receipts, and transaction processing | [payment-module.md](src/modules/payment/payment-module.md) |
+| **profiles** | Player and admin profile management | [profiles-module.md](src/modules/profiles/profiles-module.md) |
+| **support** | Help ticket system with agents and support groups | [support-module.md](src/modules/support/docs/support-module.md) |
+| **upload** | File and image uploads via Cloudinary | [upload-module.md](src/modules/upload/upload-module.md) |
+| **user** | User account management | [user-module.md](src/modules/user/user-module.md) |
 
 ---
 
