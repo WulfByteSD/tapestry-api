@@ -4,6 +4,7 @@ import { AuthMiddleware } from '../../../middleware/AuthMiddleware';
 import { AuthenticationHandler } from '../handlers/AuthenticationHandler';
 import { PasswordRecoveryHandler } from '../handlers/PasswordRecoveryHandler';
 import { RegisterHandler } from '../handlers/RegisterHandler';
+import { AdminAuthService } from '../service/AdminAuth.service';
 import featureRoutes from './featureRoutes';
 import planRoutes from './planRoutes';
 import legalRoutes from './legalRoutes';
@@ -12,6 +13,7 @@ import billingRoutes from './billingRoutes';
 const router = express.Router();
 
 const authService = new AuthService(new AuthenticationHandler(), new PasswordRecoveryHandler(), new RegisterHandler());
+const adminAuthService = new AdminAuthService();
 
 router.use('/feature', featureRoutes);
 router.use('/plan', planRoutes);
@@ -35,4 +37,17 @@ router.route('/health').get((req, res) => {
 
 // authenticated routes
 router.get('/me', AuthMiddleware.protect, authService.getMe);
+
+// Admin routes - CRUD operations on user accounts
+router.use('/users', AuthMiddleware.protect);
+router.route('/users/:id').get(adminAuthService.getResource).put(adminAuthService.updateResource);
+
+router.use('/users', AuthMiddleware.authorizeRoles(['*', 'admin', 'moderator', 'developer', 'support']) as any);
+router.route('/users').post(adminAuthService.create).get(adminAuthService.getResources);
+
+router.route('/users/:id/reset-password').post(adminAuthService.updatePassword);
+
+// Fine-tuned access - only developers and users with special permissions can delete
+router.route('/users/:id').delete(AuthMiddleware.authorizeRoles(['users.delete', 'developer']) as any, adminAuthService.removeResource);
+
 export default router;
