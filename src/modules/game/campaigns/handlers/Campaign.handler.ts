@@ -205,4 +205,15 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
       throw new ErrorUtil('Failed to fetch campaign', 500);
     }
   }
+
+  async playerCampaigns(playerId: string): Promise<CampaignType[]> {
+    try {
+      return await this.Schema.find({ 'members.player': playerId as any })
+        .populate('owner', 'displayName avatar timezone')
+        .populate('members.player', 'displayName avatar timezone')
+        .lean();
+    } catch (error) {
+      throw new ErrorUtil('Failed to fetch player campaigns', 500);
+    }
+  }
 }
