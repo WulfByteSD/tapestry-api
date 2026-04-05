@@ -1,4 +1,6 @@
 const { Server } = require('socket.io');
+import { createAdapter } from '@socket.io/redis-adapter';
+import { pubClient, subClient } from '../config/redis';
 
 let io: typeof Server | null = null;
 
@@ -13,6 +15,7 @@ export default {
       },
       pingTimeout: 60000, // Keep the connection alive
     });
+    io.adapter(createAdapter(pubClient, subClient));
     return io;
   },
   getIO: () => {

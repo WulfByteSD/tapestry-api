@@ -306,7 +306,7 @@ export default class CampaignEventHandler {
         new mongoose.Types.ObjectId(event.campaignId)
       );
 
-      const user = await mongoose.model('User').findById(player.user);
+      const user = await mongoose.model('Auth').findById(player.user);
       if (user && (user as any).email) {
         try {
           await EmailService.sendEmail({
@@ -361,7 +361,7 @@ export default class CampaignEventHandler {
         new mongoose.Types.ObjectId(event.requestId)
       );
 
-      const user = await mongoose.model('User').findById(player.user);
+      const user = await mongoose.model('Auth').findById(player.user);
       if (user && (user as any).email) {
         try {
           await EmailService.sendEmail({

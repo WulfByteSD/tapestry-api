@@ -1,4 +1,4 @@
-import { eventBus } from '../../../lib/eventBus';
+import { eventBus } from '../../../../lib/eventBus';
 import CampaignActivityEventHandler from '../handlers/CampaignActivityEventHandler';
 
 /**
