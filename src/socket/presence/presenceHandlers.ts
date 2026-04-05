@@ -79,7 +79,7 @@ export function registerPresenceHandlers(io: Server, socket: Socket) {
       const { wasLastConnection } = await presenceStore.removeUser(campaignId, socket.id);
 
       if (wasLastConnection) {
-        io.to(room).emit('presence:user-left', { campaignId, userId });
+        io.to(room).emit('presence:user-left', { campaignId, userId, playerId });
       }
 
       console.info(`[Presence] ${displayName} left campaign ${campaignId}`);
@@ -98,7 +98,7 @@ export function registerPresenceHandlers(io: Server, socket: Socket) {
         const { wasLastConnection } = await presenceStore.removeUser(campaignId, socket.id);
 
         if (wasLastConnection) {
-          io.to(room).emit('presence:user-left', { campaignId, userId });
+          io.to(room).emit('presence:user-left', { campaignId, userId, playerId });
         }
       }
 
