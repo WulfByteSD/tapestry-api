@@ -8,6 +8,7 @@ import joinRequestRoutes from './joinRequests';
 import memberRoutes from './members';
 import characterRequestRoutes from './characterRequests';
 import campaignCharacterRoutes from './campaignCharacters';
+import activityRoutes from './activity';
 
 const router = express.Router();
 
@@ -41,6 +42,7 @@ router.use('/:id/join-requests', joinRequestRoutes);
 router.use('/:id/members', memberRoutes);
 router.use('/:id/character-requests', characterRequestRoutes);
 router.use('/:id/characters', campaignCharacterRoutes);
+router.use('/:id/activity', activityRoutes);
 
 // Direct join route (not nested under /join-requests)
 router.route('/:id/join').post(joinRequestService.joinCampaign);

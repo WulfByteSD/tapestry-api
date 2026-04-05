@@ -19,6 +19,7 @@ import { cronJobs } from './cron/cronjobs';
 import cluster from 'cluster';
 import os from 'os';
 import NotificationService from './modules/notification/services/NotificationService';
+import NCampaignActivityService from './modules/game/campaigns/service/NCampaignActivityService';
 
 // Routes
 //const middlewares
@@ -28,6 +29,8 @@ const hpp = require('hpp');
 
 const notificationService = new NotificationService();
 notificationService.init();
+
+new NCampaignActivityService().init();
 
 const app = express();
 
