@@ -87,7 +87,8 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
         player: playerId as any,
         role,
         joinedAt: new Date(),
-      });
+        characters: [],
+      }) as any;
 
       await campaign.save();
 

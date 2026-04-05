@@ -203,4 +203,184 @@ export default class CampaignEventHandler {
       // Don't throw - this is a notification handler
     }
   };
+
+  /**
+   * Handle character request created event
+   * Notify campaign owner and co-storyweavers
+   */
+  onCharacterRequested = async (event: { campaignId: string; playerId: string; characterId: string; requestId: string; message?: string }) => {
+    console.info(`[Notification] Character request created for campaign: ${event.campaignId}`);
+
+    try {
+      const campaign = await CampaignModel.findById(event.campaignId);
+      const requestingPlayer = await PlayerModel.findById(event.playerId);
+      const CharacterModel = (await import('../../game/characters/model/CharacterModel')).default;
+      const character = await CharacterModel.findById(event.characterId);
+
+      if (!campaign || !requestingPlayer) {
+        console.error('Campaign or player not found for character request notification');
+        return;
+      }
+
+      const storyweaverIds: mongoose.Types.ObjectId[] = [];
+      const owner = await PlayerModel.findById(campaign.owner);
+      if (owner) storyweaverIds.push(owner.user as any);
+
+      const coStoryweavers = campaign.members.filter((m) => m.role === 'co-sw');
+      for (const coSw of coStoryweavers) {
+        const player = await PlayerModel.findById(coSw.player);
+        if (player) storyweaverIds.push(player.user as any);
+      }
+
+      const characterName = character?.name || 'A character';
+      const notificationMessage = `${requestingPlayer.displayName || 'A player'} wants to bring "${characterName}" into "${campaign.name}"`;
+      const notificationDescription = event.message
+        ? `Message: "${event.message.substring(0, 100)}${event.message.length > 100 ? '...' : ''}"`
+        : `Review the request to approve or reject.`;
+
+      for (const storyweaverUserId of storyweaverIds) {
+        await Notification.insertNotification(
+          storyweaverUserId,
+          requestingPlayer.user as any,
+          notificationMessage,
+          notificationDescription,
+          'campaign.characterRequest',
+          new mongoose.Types.ObjectId(event.requestId)
+        );
+
+        const storyweaver = await mongoose.model('User').findById(storyweaverUserId);
+        if (storyweaver && (storyweaver as any).email) {
+          try {
+            await EmailService.sendEmail({
+              to: (storyweaver as any).email,
+              subject: `Character Request for ${campaign.name}`,
+              templateId: 'CAMPAIGN_CHARACTER_REQUEST_TEMPLATE_ID',
+              data: {
+                campaignName: campaign.name,
+                playerName: requestingPlayer.displayName || 'A player',
+                characterName,
+                playerMessage: event.message || '',
+                approveUrl: `${process.env.FRONTEND_URL}/campaigns/${campaign._id}/character-requests/${event.requestId}`,
+                currentYear: new Date().getFullYear(),
+                subject: `Character Request for ${campaign.name}`,
+              },
+            });
+          } catch (emailError) {
+            console.error('Failed to send character request email:', emailError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to handle character request event:', error);
+    }
+  };
+
+  /**
+   * Handle character request approved event
+   * Notify the player that their character was approved
+   */
+  onCharacterApproved = async (event: { campaignId: string; playerId: string; characterId: string; requestId?: string }) => {
+    console.info(`[Notification] Character approved for campaign: ${event.campaignId}, player: ${event.playerId}`);
+
+    try {
+      const campaign = await CampaignModel.findById(event.campaignId);
+      const player = await PlayerModel.findById(event.playerId);
+      const CharacterModel = (await import('../../game/characters/model/CharacterModel')).default;
+      const character = await CharacterModel.findById(event.characterId);
+
+      if (!campaign || !player) {
+        console.error('Campaign or player not found for character approval notification');
+        return;
+      }
+
+      const characterName = character?.name || 'Your character';
+      const notificationMessage = `"${characterName}" has been approved for "${campaign.name}"!`;
+      const notificationDescription = `Your character is now part of the campaign. The adventure begins!`;
+
+      await Notification.insertNotification(
+        player.user as any,
+        null as any,
+        notificationMessage,
+        notificationDescription,
+        'campaign.characterApproved',
+        new mongoose.Types.ObjectId(event.campaignId)
+      );
+
+      const user = await mongoose.model('User').findById(player.user);
+      if (user && (user as any).email) {
+        try {
+          await EmailService.sendEmail({
+            to: (user as any).email,
+            subject: `Character Approved for ${campaign.name}`,
+            templateId: 'CAMPAIGN_CHARACTER_APPROVED_TEMPLATE_ID',
+            data: {
+              campaignName: campaign.name,
+              characterName,
+              campaignUrl: `${process.env.FRONTEND_URL}/campaigns/${campaign._id}`,
+              currentYear: new Date().getFullYear(),
+              subject: `Character Approved for ${campaign.name}`,
+            },
+          });
+        } catch (emailError) {
+          console.error('Failed to send character approval email:', emailError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to handle character approval event:', error);
+    }
+  };
+
+  /**
+   * Handle character request rejected event
+   * Notify the player that their request was rejected
+   */
+  onCharacterRejected = async (event: { campaignId: string; playerId: string; characterId: string; requestId: string }) => {
+    console.info(`[Notification] Character request rejected for campaign: ${event.campaignId}, player: ${event.playerId}`);
+
+    try {
+      const campaign = await CampaignModel.findById(event.campaignId);
+      const player = await PlayerModel.findById(event.playerId);
+      const CharacterModel = (await import('../../game/characters/model/CharacterModel')).default;
+      const character = await CharacterModel.findById(event.characterId);
+
+      if (!campaign || !player) {
+        console.error('Campaign or player not found for character rejection notification');
+        return;
+      }
+
+      const characterName = character?.name || 'Your character';
+      const notificationMessage = `"${characterName}" was not approved for "${campaign.name}"`;
+      const notificationDescription = `The storyweaver has declined this character request.`;
+
+      await Notification.insertNotification(
+        player.user as any,
+        null as any,
+        notificationMessage,
+        notificationDescription,
+        'campaign.characterRejected',
+        new mongoose.Types.ObjectId(event.requestId)
+      );
+
+      const user = await mongoose.model('User').findById(player.user);
+      if (user && (user as any).email) {
+        try {
+          await EmailService.sendEmail({
+            to: (user as any).email,
+            subject: `Character Request Update — ${campaign.name}`,
+            templateId: 'CAMPAIGN_CHARACTER_REJECTED_TEMPLATE_ID',
+            data: {
+              campaignName: campaign.name,
+              characterName,
+              currentYear: new Date().getFullYear(),
+              subject: `Character Request Update — ${campaign.name}`,
+            },
+          });
+        } catch (emailError) {
+          console.error('Failed to send character rejection email:', emailError);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to handle character rejection event:', error);
+    }
+  };
 }

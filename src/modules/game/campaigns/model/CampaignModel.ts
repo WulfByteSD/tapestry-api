@@ -10,6 +10,7 @@ export interface CampaignMember {
   role: CampaignRole;
   joinedAt?: Date;
   nickname?: string; // campaign-specific display name (optional)
+  characters: mongoose.Types.ObjectId[]; // characters attached to this campaign by this player
 }
 
 export interface CampaignInvite {
@@ -98,6 +99,7 @@ const CampaignMemberSchema = new mongoose.Schema(
     role: { type: String, enum: ['sw', 'co-sw', 'player', 'observer'], default: 'player' },
     joinedAt: { type: Date, default: () => new Date() },
     nickname: { type: String, trim: true },
+    characters: { type: [mongoose.Schema.Types.ObjectId], ref: 'Character', default: [] },
   },
   { _id: false }
 );

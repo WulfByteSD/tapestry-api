@@ -5,7 +5,7 @@ import { JoinRequestHandler } from '../handlers/JoinRequest.handler';
 import JoinRequestModel from '../model/JoinRequestModel';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import asyncHandler from '../../../../middleware/asyncHandler';
-import { CampaignRole } from '../model/CampaignModel';
+import CampaignModel, { CampaignRole } from '../model/CampaignModel';
 
 export default class JoinRequestService extends CRUDService {
   private joinRequestHandler: JoinRequestHandler;
@@ -55,8 +55,7 @@ export default class JoinRequestService extends CRUDService {
       return res.status(403).json({ error: 'Player profile not found' });
     }
 
-    // Verify user has permission to view requests (owner or co-sw)
-    const CampaignModel = (await import('../model/CampaignModel')).default;
+    // Verify user has permission to view requests (owner or co-sw) 
     const campaign = await CampaignModel.findById(campaignId);
     if (!campaign) {
       return res.status(404).json({ error: 'Campaign not found' });

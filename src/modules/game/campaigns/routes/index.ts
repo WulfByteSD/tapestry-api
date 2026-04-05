@@ -1,15 +1,19 @@
 import express from 'express';
 import CampaignService from '../service/CampaignService';
 import JoinRequestService from '../service/JoinRequestService';
+import CharacterRequestService from '../service/CharacterRequestService';
 import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
 import metaRoutes from './meta';
 import joinRequestRoutes from './joinRequests';
 import memberRoutes from './members';
+import characterRequestRoutes from './characterRequests';
+import campaignCharacterRoutes from './campaignCharacters';
 
 const router = express.Router();
 
 const service = new CampaignService();
 const joinRequestService = new JoinRequestService();
+const characterRequestService = new CharacterRequestService();
 
 router.route('/health').get((req, res) => {
   res.status(200).json({
@@ -21,8 +25,9 @@ router.route('/health').get((req, res) => {
 // All campaign routes require authentication
 router.use(AuthMiddleware.protect);
 
-// Player-specific routes (before parametric routes)
+// Player-specific collection routes (must come before /:id param routes)
 router.route('/join-requests/me').get(joinRequestService.getMyRequests);
+router.route('/character-requests/me').get(characterRequestService.getMyRequests);
 router.route('/mine').get(service.playerCampaigns);
 
 // Standard CRUD operations
@@ -34,6 +39,8 @@ router.route('/:id').get(service.getResource).put(service.updateResource).delete
 router.use('/:id/meta', metaRoutes);
 router.use('/:id/join-requests', joinRequestRoutes);
 router.use('/:id/members', memberRoutes);
+router.use('/:id/character-requests', characterRequestRoutes);
+router.use('/:id/characters', campaignCharacterRoutes);
 
 // Direct join route (not nested under /join-requests)
 router.route('/:id/join').post(joinRequestService.joinCampaign);
