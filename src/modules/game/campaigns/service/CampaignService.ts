@@ -127,4 +127,20 @@ export default class CampaignService extends CRUDService {
 
     res.status(200).json(updatedCampaign);
   });
+
+  playerCampaigns = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const playerProfile = await PlayerModel.findOne({ user: req.user._id } as any);
+      if (!playerProfile) {
+        return res.status(403).json({ error: 'Player profile not found' });
+      }
+      const campaigns = await this.campaignHandler.playerCampaigns(playerProfile._id.toString());
+      res.status(200).json({
+        success: true,
+        payload: campaigns,
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch player campaigns' });
+    }
+  });
 }

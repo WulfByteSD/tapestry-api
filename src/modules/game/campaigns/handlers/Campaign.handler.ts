@@ -4,6 +4,10 @@ import { CRUDHandler, PaginationOptions } from '../../../../utils/baseCRUD';
 import CampaignModel, { CampaignType } from '../model/CampaignModel';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import CharacterModel from '../../characters/model/CharacterModel';
+import RollLog from '../../characters/model/RollLog';
+import CampaignActivity from '../model/CampaignActivityModel';
+import CharacterRequest from '../model/CharacterRequestModel';
+import JoinRequest from '../model/JoinRequestModel';
 import { eventBus } from '../../../../lib/eventBus';
 
 export class CampaignHandler extends CRUDHandler<CampaignType> {
@@ -87,7 +91,8 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
         player: playerId as any,
         role,
         joinedAt: new Date(),
-      });
+        characters: [],
+      }) as any;
 
       await campaign.save();
 
@@ -193,7 +198,10 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
 
   async fetch(id: string): Promise<CampaignType | null> {
     try {
-      const campaign = await this.Schema.findById(id).populate('owner', 'displayName avatar timezone').populate('members.player', 'displayName avatar timezone').lean();
+      const campaign = await this.Schema.findById(id)
+        .populate('owner', 'displayName avatar timezone bio')
+        .populate('members.player', 'displayName avatar timezone bio user')
+        .lean();
 
       if (!campaign) {
         throw new ErrorUtil('Campaign not found', 404);
@@ -201,8 +209,53 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
 
       return campaign;
     } catch (error) {
-      if (error instanceof ErrorUtil) throw error;
       throw new ErrorUtil('Failed to fetch campaign', 500);
+    }
+  }
+
+  async playerCampaigns(playerId: string): Promise<CampaignType[]> {
+    try {
+      return await this.Schema.find({ 'members.player': playerId as any })
+        .populate('owner', 'displayName avatar timezone')
+        .populate('members.player', 'displayName avatar timezone user')
+        .lean();
+    } catch (error) {
+      throw new ErrorUtil('Failed to fetch player campaigns', 500);
+    }
+  }
+
+  async delete(id: string): Promise<{ success: boolean }> {
+    try {
+      const campaign = await this.Schema.findById(id);
+      if (!campaign) {
+        throw new ErrorUtil('Campaign not found', 404);
+      }
+
+      // Run all cleanup in parallel before removing the campaign document
+      await Promise.all([
+        // Unlink characters — they survive but are no longer attached to a campaign
+        CharacterModel.updateMany({ campaign: id as any }, { $unset: { campaign: '' } }),
+
+        // Unlink roll logs — historical rolls are preserved, just de-associated
+        RollLog.updateMany({ campaign: id as any }, { $unset: { campaign: '' } }),
+
+        // Delete all owned campaign data
+        CampaignActivity.deleteMany({ campaign: id as any }),
+        CharacterRequest.deleteMany({ campaign: id as any }),
+        JoinRequest.deleteMany({ campaign: id as any }),
+      ]);
+
+      await this.Schema.findByIdAndDelete(id);
+
+      eventBus.publish('game.campaign.deleted', {
+        campaignId: campaign._id,
+        ownerId: campaign.owner,
+      });
+
+      return { success: true };
+    } catch (error) {
+      if (error instanceof ErrorUtil) throw error;
+      throw new ErrorUtil('Failed to delete campaign', 500);
     }
   }
 }

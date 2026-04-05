@@ -1,13 +1,13 @@
 import { ErrorUtil } from '../../../middleware/ErrorUtil';
 import { CRUDHandler, PaginationOptions } from '../../../utils/baseCRUD';
 import { ModelMap } from '../../../utils/ModelMap';
-import User, { AuthType } from '../../auth/model/Auth';
+import Auth, { AuthType } from '../model/Auth';
 import crypto from 'crypto';
 
-export class UserHandler extends CRUDHandler<AuthType> {
+export class AdminAuthHandler extends CRUDHandler<AuthType> {
   modelMap: Record<string, any>;
   constructor() {
-    super(User);
+    super(Auth);
     this.modelMap = ModelMap;
   }
 
@@ -45,7 +45,7 @@ export class UserHandler extends CRUDHandler<AuthType> {
     if (!doc) return;
 
     for (const [role, profileId] of Object.entries(doc.profileRefs)) {
-      console.info(`[UserHandler]: Cleaning up profile for role: ${role}, profileId: ${profileId}`);
+      console.info(`[AdminAuthHandler]: Cleaning up profile for role: ${role}, profileId: ${profileId}`);
       const profile = await this.modelMap[role].findById(profileId);
       if (!profile) continue;
 
@@ -58,4 +58,5 @@ export class UserHandler extends CRUDHandler<AuthType> {
       await profile.save();
     }
   }
+
 }

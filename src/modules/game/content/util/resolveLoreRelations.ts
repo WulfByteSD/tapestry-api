@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { ErrorUtil } from '../../../../middleware/ErrorUtil';
-import LoreNodeModel from '../model/LoreNodeModel';
+import LoreNodeModel, { LORE_RELATION_TYPES } from '../model/LoreNodeModel';
 
 export type LoreRelationInput = {
   type?: string;
@@ -9,8 +9,6 @@ export type LoreRelationInput = {
   label?: string;
   notes?: string;
 };
-
-const ALLOWED_RELATION_TYPES = ['located_in', 'member_of', 'rules', 'serves', 'allied_with', 'enemy_of', 'related_to', 'appears_in', 'originates_from'] as const;
 
 function normalizeRelationInput(input: LoreRelationInput) {
   return {
@@ -42,7 +40,7 @@ export async function resolveLoreRelations(params: { settingKey: string; relatio
       throw new ErrorUtil('Lore relation type is required', 400);
     }
 
-    if (!ALLOWED_RELATION_TYPES.includes(relation.type as (typeof ALLOWED_RELATION_TYPES)[number])) {
+    if (!LORE_RELATION_TYPES.includes(relation.type as (typeof LORE_RELATION_TYPES)[number])) {
       throw new ErrorUtil(`Invalid lore relation type: ${relation.type}`, 400);
     }
 

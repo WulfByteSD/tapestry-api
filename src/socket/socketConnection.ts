@@ -1,3 +1,7 @@
+import { Server, Socket } from 'socket.io';
+import { socketAuthMiddleware } from './socketAuth';
+import { registerPresenceHandlers } from './presence/presenceHandlers';
+
 const colors = require('colors');
 
 /**
@@ -10,11 +14,14 @@ const colors = require('colors');
  * @since 1.0
  * @version 1.0
  */
-export default (io: any) => {
+export default (io: Server) => {
+  // Authenticate every socket connection via JWT
+  io.use(socketAuthMiddleware);
+
   try {
-    io.on('connection', (socket: any) => {
-      socket.on('setup', (userData: object) => { 
-      });
+    io.on('connection', (socket: Socket) => {
+      // ── Legacy handlers ────────────────────────────────────────────────
+      socket.on('setup', (userData: object) => {});
       socket.on('disconnect', () => {});
       socket.on('join', async (room: { roomId: string; user: any }) => {
         if (!room.roomId) return;
@@ -28,6 +35,9 @@ export default (io: any) => {
         // send the new message to the client
         socket.broadcast.to(room.roomId).emit('newMessage', room.message);
       });
+
+      // ── Presence handlers ──────────────────────────────────────────────
+      registerPresenceHandlers(io, socket);
     });
   } catch (error) {
     console.error(error);

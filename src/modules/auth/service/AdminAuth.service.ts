@@ -2,13 +2,13 @@ import { Response } from 'express';
 import asyncHandler from '../../../middleware/asyncHandler';
 import { AuthenticatedRequest } from '../../../types/AuthenticatedRequest';
 import { CRUDService } from '../../../utils/baseCRUD';
-import { UserHandler } from '../handler/User.handler';
+import { AdminAuthHandler } from '../handlers/AdminAuthHandler';
 import error from '../../../middleware/error';
 import { eventBus } from '../../../lib/eventBus';
 
-export class UserService extends CRUDService {
+export class AdminAuthService extends CRUDService {
   constructor() {
-    super(UserHandler);
+    super(AdminAuthHandler);
     this.requiresAuth = {
       create: true,
       getResource: true,

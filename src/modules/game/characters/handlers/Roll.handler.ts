@@ -1,12 +1,12 @@
-import mongoose from "mongoose";
-import { ErrorUtil } from "../../../../middleware/ErrorUtil";
-import RollLogModel, { RollLogType } from "../model/RollLog";
-import CharacterModel from "../model/CharacterModel";
-import { eventBus } from "../../../../lib/eventBus";
-import DiceRollerService from "../../utils/diceRoller/DiceRollerService";
-import { DiceRollParams } from "../../utils/diceRoller/types/DiceRollerTypes";
-import { CRUDHandler } from "../../../../utils/baseCRUD";
-import { resolveAttackOutcome } from "../../rules";
+import mongoose from 'mongoose';
+import { ErrorUtil } from '../../../../middleware/ErrorUtil';
+import RollLogModel, { RollLogType } from '../model/RollLog';
+import CharacterModel from '../model/CharacterModel';
+import { eventBus } from '../../../../lib/eventBus';
+import DiceRollerService from '../../utils/diceRoller/DiceRollerService';
+import { DiceRollParams } from '../../utils/diceRoller/types/DiceRollerTypes';
+import { CRUDHandler } from '../../../../utils/baseCRUD';
+import { resolveAttackOutcome } from '../../rules';
 
 export interface CreateRollData {
   characterId?: string | null;
@@ -21,7 +21,7 @@ export interface CreateRollData {
 
   keepBest?: number;
   keepWorst?: number;
-  operations?: Array<{ operator: "+" | "-" | "*" | "/"; value: number }>;
+  operations?: Array<{ operator: '+' | '-' | '*' | '/'; value: number }>;
 
   rollType?: string;
   context?: string;
@@ -48,7 +48,7 @@ export interface RollResult {
   attack?: {
     targetNumber: number;
     margin: number;
-    outcome: "miss" | "weak_hit" | "hit" | "strong_hit";
+    outcome: 'miss' | 'weak_hit' | 'hit' | 'strong_hit';
     targetLabel?: string;
     weaponInstanceId?: string | null;
     itemKey?: string | null;
@@ -62,8 +62,8 @@ export class RollHandler extends CRUDHandler<RollLogType> {
   private roller: DiceRollerService;
 
   constructor() {
-    super(RollLogModel as mongoose.Model<RollLogType>);
-    this.roller = new DiceRollerService(); 
+    super(RollLogModel as any);
+    this.roller = new DiceRollerService();
   }
 
   async createRoll(data: CreateRollData): Promise<RollResult> {
@@ -71,11 +71,11 @@ export class RollHandler extends CRUDHandler<RollLogType> {
       const character = await CharacterModel.findById(data.characterId);
 
       if (!character) {
-        throw new ErrorUtil("Character not found", 404);
+        throw new ErrorUtil('Character not found', 404);
       }
 
       if (character.player.toString() !== data.playerId) {
-        throw new ErrorUtil("You do not own this character", 403);
+        throw new ErrorUtil('You do not own this character', 403);
       }
 
       if (!data.campaignId && character.campaign) {
@@ -100,7 +100,7 @@ export class RollHandler extends CRUDHandler<RollLogType> {
     }
 
     const attackResolution =
-      data.rollType === "attack" && data.attack
+      data.rollType === 'attack' && data.attack
         ? {
             ...resolveAttackOutcome(rollResult.total, data.attack.targetNumber),
             targetLabel: data.attack.targetLabel,
@@ -121,7 +121,7 @@ export class RollHandler extends CRUDHandler<RollLogType> {
       keptRolls: rollResult.keptRolls,
       total: rollResult.total,
       breakdown: rollResult.breakdown,
-      rollType: data.rollType || "custom",
+      rollType: data.rollType || 'custom',
       context: data.context,
       aspectUsed: data.aspectUsed,
       attack: attackResolution ?? null,
@@ -129,7 +129,7 @@ export class RollHandler extends CRUDHandler<RollLogType> {
     });
 
     try {
-      eventBus.publish("game.dice.rolled", {
+      eventBus.publish('game.dice.rolled', {
         rollId: rollLog._id,
         characterId: data.characterId,
         playerId: data.playerId,
@@ -139,7 +139,7 @@ export class RollHandler extends CRUDHandler<RollLogType> {
         attackOutcome: attackResolution?.outcome,
       });
     } catch (error: any) {
-      console.error("Failed to publish dice roll event:", error);
+      console.error('Failed to publish dice roll event:', error);
     }
 
     return {

@@ -5,7 +5,6 @@ import paymentRoutes from '../../modules/payment/routes/index';
 import uploadRoutes from '../../modules/upload/routes/index';
 import notificationRoutes from '../../modules/notification/route/index';
 import adminRoutes from '../../modules/profiles/admin/route/index';
-import userRoutes from '../../modules/user/route/index';
 import profileRoutes from '../../modules/profiles/routes/index';
 import gameRoutes from '../../modules/game/routes/index';
 
@@ -17,7 +16,6 @@ router.use('/payment', paymentRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/notification', notificationRoutes);
 router.use('/profiles', profileRoutes);
-router.use('/user', userRoutes);
 router.use('/game', gameRoutes);
 
 // TODO: Remove these when the new profile routes are fully integrated
