@@ -9,6 +9,7 @@ router.use(AuthMiddleware.protect);
 
 // List / create requests for a campaign
 router.route('/').get(service.listRequests).post(service.createCharacterRequest);
+router.route('/me').get(service.getMyRequests);
 
 // Approve / reject a specific request
 router.route('/:reqId/approve').post(service.approveRequest);

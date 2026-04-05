@@ -164,11 +164,11 @@ export class CharacterRequestHandler extends CRUDHandler<CharacterRequestType> {
   }
 
   /**
-   * Get all character requests submitted by a specific player.
+   * Get all character requests submitted by a specific player for a specific campaign.
    */
-  async getPlayerRequests(playerId: string): Promise<CharacterRequestType[]> {
+  async getPlayerRequests(campaignId: string, playerId: string): Promise<CharacterRequestType[]> {
     try {
-      return await this.Schema.find({ player: playerId as any })
+      return await this.Schema.find({ player: playerId as any, campaign: campaignId as any })
         .populate('campaign', 'name avatar status')
         .populate('character', 'name avatarUrl status')
         .sort({ requestedAt: -1 });

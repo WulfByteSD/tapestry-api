@@ -63,16 +63,18 @@ export default class CharacterRequestService extends CRUDService {
   });
 
   /**
-   * Get the authenticated player's character requests across all campaigns
-   * GET /campaigns/character-requests/me
+   * Get the authenticated player's character requests for specific campaign
+   * GET /campaigns/:id/character-requests/me
    */
   getMyRequests = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const { id: campaignId } = req.params;
+
     const playerProfile = await PlayerModel.findOne({ user: req.user._id } as any);
     if (!playerProfile) return res.status(403).json({ error: 'Player profile not found' });
 
-    const requests = await this.charRequestHandler.getPlayerRequests(playerProfile._id.toString());
+    const requests = await this.charRequestHandler.getPlayerRequests(campaignId as string, playerProfile._id.toString());
 
-    res.status(200).json(requests);
+    res.status(200).json(requests); 
   });
 
   /**
