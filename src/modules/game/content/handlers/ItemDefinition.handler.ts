@@ -50,12 +50,18 @@ export default class ItemDefinitionHandler extends CRUDHandler<ItemDefinitionTyp
       status: 'published',
     };
 
-    console.log(filters);
-
     if (category) {
       filters.category = category;
     }
 
     return await this.Schema.find(filters).sort({ category: 1, name: 1 }).lean();
+  }
+
+  async fetchForExport(mongoFilter: Record<string, any>[]): Promise<ItemDefinitionType[]> {
+    return await this.Schema.find({ $and: mongoFilter }).sort({ category: 1, name: 1 }).lean();
+  }
+
+  async fetchForExportCount(mongoFilter: Record<string, any>[]): Promise<number> {
+    return await this.Schema.countDocuments({ $and: mongoFilter });
   }
 }
