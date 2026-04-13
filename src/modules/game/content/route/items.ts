@@ -10,6 +10,11 @@ router.use(AuthMiddleware.protect);
 router.get('/by-key/:key', service.getItemByKey);
 router.get('/setting/:settingKey', service.getItemsForSetting);
 router.post('/import', service.importCsv);
+
+const exportGuard = AuthMiddleware.authorizeRoles(['admin', 'developer', 'content:write']) as any;
+router.get('/export/count', exportGuard, service.exportCsvCount);
+router.get('/export', exportGuard, service.exportCsv);
+
 router.get('/', service.getResources);
 router.get('/:id', service.getResource);
 

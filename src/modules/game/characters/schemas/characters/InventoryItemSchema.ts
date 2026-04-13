@@ -32,6 +32,7 @@ export interface InventoryItem {
   stackable?: boolean;
   itemKey?: string;
   sourceId?: string;
+  imageUrl?: string;
   name?: string;
   qty: number;
   tags?: string[];
@@ -77,6 +78,7 @@ export const InventoryItemSchema = new mongoose.Schema(
     qty: { type: Number, default: 1, min: 0 },
     tags: { type: [String], default: [] },
     notes: { type: String, default: '' },
+    imageUrl: { type: String, trim: true },
     category: {
       type: String,
       enum: ['weapon', 'armor', 'gear', 'consumable', 'tool', 'currency', 'quest', 'other'],

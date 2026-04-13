@@ -1,10 +1,14 @@
 import { Request, Response } from 'express';
 import asyncHandler from '../../../../middleware/asyncHandler';
 import error from '../../../../middleware/error';
+import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import { CRUDService } from '../../../../utils/baseCRUD';
+import { AdvFilters } from '../../../../utils/advFilter/AdvFilters';
 import ItemDefinitionHandler from '../handlers/ItemDefinition.handler';
 import { getUploadedCsvFile, resolveImportMode, runCsvImport } from '../util/import/csvImport';
 import { itemCsvImportDefinition } from '../util/import/contentCsvDefinition';
+import { runCsvExport, sendCsvResponse } from '../util/export/csvExport';
+import { itemCsvExportDefinition } from '../util/export/contentCsvExport';
 
 export default class ItemsService extends CRUDService {
   private itemHandler: ItemDefinitionHandler;
@@ -78,4 +82,36 @@ export default class ItemsService extends CRUDService {
       return error(err, req, res);
     }
   });
+
+  exportCsvCount = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const mongoFilter = this.parseExportFilter(req);
+      const count = await this.itemHandler.fetchForExportCount(mongoFilter);
+      return res.status(200).json({ success: true, payload: { count } });
+    } catch (err) {
+      console.error(err);
+      return error(err, req, res);
+    }
+  });
+
+  exportCsv = asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const mongoFilter = this.parseExportFilter(req);
+      const results = await this.itemHandler.fetchForExport(mongoFilter);
+      const csv = runCsvExport(itemCsvExportDefinition, results);
+      const filename = `items-export-${Date.now()}.csv`;
+      return sendCsvResponse(res, filename, csv);
+    } catch (err) {
+      console.error(err);
+      return error(err, req, res);
+    }
+  });
+
+  private parseExportFilter(req: Request): Record<string, any>[] {
+    const mongoFilter = AdvFilters.filter(req.query.filterOptions as string);
+    if (Object.keys(mongoFilter[0]).length === 0) {
+      throw new ErrorUtil('At least one filter is required for export', 400);
+    }
+    return mongoFilter;
+  }
 }

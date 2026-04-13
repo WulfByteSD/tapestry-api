@@ -25,6 +25,7 @@ export interface ItemDefinitionType extends mongoose.Document {
   name: string;
   category: InventoryCategory;
   status: ContentStatus;
+  imageUrl?: string;
   settingKeys: string[];
   tags: string[];
   equippable: boolean;
@@ -54,7 +55,7 @@ const AttackProfileSchema = new mongoose.Schema(
     rangeLabel: { type: String, trim: true, default: null },
     tags: { type: [String], default: [] },
     notes: { type: String, default: '', trim: true },
-  },
+  }, 
   { _id: false }
 );
 
@@ -80,6 +81,7 @@ const ItemDefinitionSchema = new mongoose.Schema(
       default: [],
       index: true,
     },
+    imageUrl: { type: String, trim: true },
     tags: { type: [String], default: [] },
     equippable: { type: Boolean, default: false },
     slot: { type: String, trim: true, default: null },

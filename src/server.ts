@@ -72,13 +72,13 @@ app.use(express.static(path.join(__dirname, '../public')));
 //   });
 //   next();
 // });
-
+ 
 app.use('/api/v1', apiV1Routes);
 app.post('/webhook', (req, res) => {
   console.info(`[Server]: Webhook received!`);
   // Process the webhook payload and execute Git pull
-  executeGitPull();
-  // Restart the server
+  executeGitPull(); 
+  // Restart the server 
   restartServer(() => {
     console.info('[Server]: restarted successfully!');
     // Respond with a success status
