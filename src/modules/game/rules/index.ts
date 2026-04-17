@@ -19,6 +19,8 @@ import { CharacterRuleData } from './types/RuleTypes';
 import { validateAspectRanges } from './attributes/aspectRules';
 import { applyHPRules } from './resources/hpRules';
 import { enforceThreadsRange } from './resources/threadsRules';
+import calculateDTN from './combat/calculateDTN';
+import calculateCharacterProtection from './combat/calculateCharacterProtection';
 
 /**
  * Apply all game rules to a character
@@ -61,6 +63,12 @@ export function applyCharacterRules(characterData: CharacterRuleData): Character
   // - Clamp threads.current, threads.max, threads.temp to 0-5
   enforceThreadsRange(characterData);
   // console.log('Applied threads rules:', characterData);
+
+  // Step 4: calculate DTN based on aspects
+  // - DTN = 10 + best aspect (strength, agility, willpower)
+  // - This is dynamic and can change as aspects change
+  calculateDTN(characterData);
+ 
   return characterData;
 }
 
