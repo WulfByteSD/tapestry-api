@@ -1,8 +1,34 @@
 import { ErrorUtil } from '../../../middleware/ErrorUtil';
 import { AuthType } from '../../auth/model/Auth';
+import PlayerModel from '../../profiles/player/model/PlayerModel';
 import { EmailService } from '../email/EmailService';
 
 export default class RegistrationEventHandler {
+  async userRegistered(event: { user: AuthType }) {
+    const { user } = event;
+    if (!user) {
+      console.log('No user data provided in userRegistered event');
+      return;
+    }
+    const playerProfile = await PlayerModel.findOne({ user: user._id as any }).lean();
+    console.info(`[Notification] New user registered with email: ${user.email}`);
+    try {
+      await EmailService.sendEmail({
+        to: user.email,
+        subject: `Welcome to ${process.env.APP_NAME || 'Tapestry - TTRPG'}!`,
+        templateId: 'registration-email-tapestry',
+        data: {
+          name: playerProfile?.displayName,
+          actionUrl: `${process.env.FRONTEND_URL}`,
+          discordLink: process.env.DISCORD_INVITE_LINK,
+          currentYear: new Date().getFullYear(),
+          subject: `Welcome to ${process.env.APP_NAME || 'Tapestry - TTRPG'}!`,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send registration email:', error);
+    }
+  }
   async passwordResetCompleted(event: { user: AuthType }) {
     const { user } = event;
     if (!user) {
@@ -13,10 +39,12 @@ export default class RegistrationEventHandler {
       await EmailService.sendEmail({
         to: user.email,
         subject: 'Your Password Has Been Reset Successfully',
-        templateId: 'd-100b051843c146f5b2e19633f004a15b',
+        templateId: 'password-reset-success-tapestry',
         data: {
           currentYear: new Date().getFullYear(),
           subject: 'Your Password Has Been Reset Successfully',
+          portalUrl: `https://app.tapestry-ttrpg.com/`,
+          supportEmail: 'support@tapestry-ttrpg.com'
         },
       });
     } catch (err: any) {
@@ -31,13 +59,13 @@ export default class RegistrationEventHandler {
       const verificationUrl = `${process.env.FRONTEND_AUTH_URL}/verify-email?token=${user.emailVerificationToken}`;
       await EmailService.sendEmail({
         to: user.email,
-        subject: 'Welcome to FreeAgent Portal - Please Verify Your Email',
-        templateId: 'd-ef91fa3ddf554f33b6efdd205c181f7b',
+        subject: 'Please Verify Your Email',
+        templateId: 'verification-email-tapestry',
         data: {
-          firstName: user.firstName,
+          name: user.firstName,
           currentYear: new Date().getFullYear(),
-          verificationLink: verificationUrl,
-          subject: 'Welcome to FreeAgent Portal - Please Verify Your Email',
+          verificationUrl: verificationUrl,
+          subject: 'Please Verify Your Email',
         },
       });
     } catch (err: any) {
@@ -83,12 +111,14 @@ export default class RegistrationEventHandler {
       await EmailService.sendEmail({
         to: email,
         subject: 'Password Reset Request',
-        templateId: 'd-a10af4698c09420fbd7c766a1ca1a99e',
+        templateId: 'reset-password-copy-tapestry',
         data: {
-          resetLink: resetUrl,
+          resetUrl: resetUrl,
+          supportEmail: `support@tapestry-ttrpg.com`,
           currentYear: new Date().getFullYear(),
           subject: 'Password Reset Request',
           expirationTime: '10 minutes',
+          discordLink: process.env.DISCORD_INVITE_LINK,
         },
       });
     } catch (err: any) {
