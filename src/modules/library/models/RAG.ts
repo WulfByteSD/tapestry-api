@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 export interface IResourceAccessGrant extends mongoose.Document {
   userId: string;
@@ -43,5 +43,8 @@ const ResourceAccessGrantSchema = new mongoose.Schema<IResourceAccessGrant>({
   grantedAt: { type: Date, default: Date.now },
   expiresAt: { type: Date },
 });
+
+ResourceAccessGrantSchema.index({ userId: 1, resourceId: 1, status: 1 });
+ResourceAccessGrantSchema.index({ expiresAt: 1 });
 
 export default mongoose.model<IResourceAccessGrant>('ResourceAccessGrant', ResourceAccessGrantSchema);

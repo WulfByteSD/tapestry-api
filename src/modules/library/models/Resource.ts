@@ -75,4 +75,6 @@ const ResourceSchema = new mongoose.Schema<IResource>(
   { timestamps: true }
 );
 
+ResourceSchema.index({ status: 1, accessPolicy: 1 });
+
 export default mongoose.model<IResource>('Resource', ResourceSchema);

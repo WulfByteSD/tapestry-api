@@ -1,17 +1,17 @@
 import express from 'express';
+import ragRoutes from './rag.routes';
+import resourceRoutes from './resource.routes';
 
 const router = express.Router();
-
-
-router.use('/resources', require('./resource.routes').default);
 
 router.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Content service is up and running',
+    message: 'Library service is up and running',
   });
 });
 
-
+router.use('/resources', resourceRoutes);
+router.use('/admin/rag', ragRoutes);
 
 export default router;

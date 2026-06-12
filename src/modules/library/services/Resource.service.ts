@@ -20,19 +20,30 @@ export default class ResourceService extends CRUDService {
       create: true,
       getResources: true,
       getResource: true,
+      getMyResources: true,
       consumeResource: true,
     };
 
-    this.viewResource = this.viewResource.bind(this);
+    this.getMyResources = this.getMyResources.bind(this);
     this.consumeResource = this.consumeResource.bind(this);
   }
 
-  /**
-   * @description Public View endpoint for a resource, 
-   * @param req 
-   * @param res 
-   */
-  async viewResource(req: Request, res: Response): Promise<void> {}
+  async getMyResources(req: Request, res: Response): Promise<void> {
+    try {
+      this.ensureAuthenticated(req as AuthenticatedRequest, 'getMyResources' as keyof CRUDService);
+
+      const authenticatedRequest = req as AuthenticatedRequest;
+      const resources = await this.handler.getMyResources(authenticatedRequest.user._id.toString());
+
+      res.status(200).json({
+        success: true,
+        payload: resources,
+      });
+    } catch (err) {
+      console.error(err);
+      error(err, req, res);
+    }
+  }
 
   /**
    * @description Authenticated endpoint to view a resource, must have entitlement (RAG) to view the resource

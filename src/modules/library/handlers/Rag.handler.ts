@@ -1,5 +1,5 @@
 import { ErrorUtil } from '../../../middleware/ErrorUtil';
-import { CRUDHandler, PaginationOptions } from '../../../utils/baseCRUD';
+import { CRUDHandler } from '../../../utils/baseCRUD';
 import PlayerModel from '../../profiles/player/model/PlayerModel';
 import Resource from '../models/Resource';
 import RAG, { IResourceAccessGrant } from '../models/RAG';
@@ -7,6 +7,18 @@ import RAG, { IResourceAccessGrant } from '../models/RAG';
 export class RAGHandler extends CRUDHandler<IResourceAccessGrant> {
   constructor() {
     super(RAG);
+  }
+
+  async delete(id: string): Promise<{ success: boolean }> {
+    const grant = await this.Schema.findById(id);
+    if (!grant) {
+      throw new ErrorUtil('Resource access grant not found', 404);
+    }
+
+    grant.status = 'revoked';
+    await grant.save();
+
+    return { success: true };
   }
 
   async grantAccessForUser(input: {

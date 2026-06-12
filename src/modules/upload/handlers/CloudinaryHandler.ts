@@ -3,6 +3,12 @@ import streamifier from 'streamifier';
 
 export class CloudinaryHandler {
   constructor() {
+    console.info('[CloudinaryHandler] Configuring Cloudinary client', {
+      hasCloudName: Boolean(process.env.CLOUDINARY_CLOUD_NAME),
+      hasApiKey: Boolean(process.env.CLOUDINARY_KEY),
+      hasApiSecret: Boolean(process.env.CLOUDINARY_SECRET),
+    });
+
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
       api_key: process.env.CLOUDINARY_KEY!,
@@ -27,7 +33,15 @@ export class CloudinaryHandler {
     original_filename: string;
     resource_type: string;
     format: string;
+    bytes?: number;
   }> {
+    console.info('[CloudinaryHandler] Starting upload', {
+      fileName,
+      folder,
+      bytes: fileBuffer.length,
+      resourceType: 'auto',
+    });
+
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -37,14 +51,39 @@ export class CloudinaryHandler {
           // unique_filename: true, // change to false if you want exact filename retention
         },
         (error, result) => {
-          if (error) return reject(error);
-          if (!result) return reject(new Error('Empty upload result from Cloudinary'));
+          if (error) {
+            console.error('[CloudinaryHandler] Upload failed', {
+              fileName,
+              folder,
+              message: error.message,
+              httpCode: (error as any).http_code,
+            });
+            return reject(error);
+          }
+
+          if (!result) {
+            console.error('[CloudinaryHandler] Upload failed with empty Cloudinary result', {
+              fileName,
+              folder,
+            });
+            return reject(new Error('Empty upload result from Cloudinary'));
+          }
+
+          console.info('[CloudinaryHandler] Upload completed', {
+            fileName,
+            publicId: result.public_id,
+            resourceType: result.resource_type,
+            format: result.format,
+            bytes: result.bytes,
+          });
+
           return resolve({
             public_id: result.public_id,
             secure_url: result.secure_url,
             original_filename: result.original_filename,
             resource_type: result.resource_type,
             format: result.format,
+            bytes: result.bytes,
           });
         }
       );

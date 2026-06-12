@@ -12,14 +12,11 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Standard CRUD operations
-
-router.route('/').get(service.getResources);
-router.route('/:id/view').get(service.viewResource);
+router.route('/mine').get(AuthMiddleware.protect as any, service.getMyResources);
 router.route('/:id/consume').get(AuthMiddleware.protect as any, service.consumeResource);
 
-router.use(AuthMiddleware.protect, AuthMiddleware.authorizeRoles(['admin']) as any);
-router.route('/').post(service.create);
+router.use(AuthMiddleware.protect as any, AuthMiddleware.authorizeRoles(['admin']) as any);
+router.route('/').get(service.getResources).post(service.create);
 router.route('/:id').get(service.getResource).put(service.updateResource).delete(service.removeResource);
 
 export default router;
