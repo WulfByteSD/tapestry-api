@@ -1,5 +1,5 @@
 import { CRUDService } from '../../../utils/baseCRUD';
-import { RAGHandler } from '../handlers/rag.handler';
+import { RAGHandler } from '../handlers/Rag.handler';
 import { ResourceHandler } from '../handlers/Resource.handler';
 
 /**

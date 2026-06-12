@@ -16,6 +16,7 @@ router.get('/health', (req, res) => {
 
 router.route('/').get(service.getResources);
 router.route('/:id/view').get(service.viewResource);
+router.route('/:id/consume').get(AuthMiddleware.protect as any, service.consumeResource);
 
 router.use(AuthMiddleware.protect, AuthMiddleware.authorizeRoles(['admin']) as any);
 router.route('/').post(service.create);

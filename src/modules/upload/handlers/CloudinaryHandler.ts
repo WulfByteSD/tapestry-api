@@ -62,6 +62,40 @@ export class CloudinaryHandler {
   }
 
   /**
+   * Looks up an uploaded Cloudinary asset and returns its canonical delivery URL.
+   * Tries common resource types because uploads use `resource_type: auto`.
+   */
+  async getAsset(publicId: string): Promise<{
+    secure_url: string;
+    bytes?: number;
+    format?: string;
+    resource_type: string;
+    original_filename?: string;
+  }> {
+    const resourceTypes: Array<'raw' | 'image' | 'video'> = ['raw', 'image', 'video'];
+
+    for (const resourceType of resourceTypes) {
+      try {
+        const asset = await cloudinary.api.resource(publicId, { resource_type: resourceType });
+        return {
+          secure_url: asset.secure_url,
+          bytes: asset.bytes,
+          format: asset.format,
+          resource_type: asset.resource_type,
+          original_filename: asset.original_filename,
+        };
+      } catch (error: any) {
+        if (error?.http_code === 404) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new Error(`Cloudinary asset not found for public id: ${publicId}`);
+  }
+
+  /**
    * Generates a transformed URL (future-use)
    * @param publicId
    * @param options
