@@ -1,7 +1,7 @@
 import express from 'express';
 import CharacterService from '../service/CharacterService';
 import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
-import asyncHandler from '../../../../middleware/asyncHandler';
+import { getPublicCharacter } from '../handlers/PublicCharacter.handler';
 
 const router = express.Router();
 
@@ -14,7 +14,10 @@ router.route('/health').get((req, res) => {
   });
 });
 
-// All character routes require authentication
+// Anonymous access is limited to the explicit public card response.
+router.get('/:id/public', getPublicCharacter);
+
+// All other character routes require authentication
 router.use(AuthMiddleware.protect);
 
 // Standard CRUD operations

@@ -118,6 +118,11 @@ describe('ResourceHandler', () => {
   describe('prepareConsumableResource', () => {
     it('blocks when the authenticated user has no player profile', async () => {
       mockPlayerFindOne.mockResolvedValue(null);
+      mockResourceFindById.mockResolvedValue({
+        _id: objectId('resource-id'),
+        status: 'published',
+        accessPolicy: 'entitlement',
+      });
 
       await expect(new ResourceHandler().prepareConsumableResource('resource-id', 'auth-user-id')).rejects.toMatchObject({
         statusCode: 404,
@@ -208,6 +213,47 @@ describe('ResourceHandler', () => {
         fileName: 'players-guide.pdf',
       });
     });
+
+    it('returns stream metadata for public resources without requiring entitlement checks', async () => {
+      mockResourceFindById.mockResolvedValue({
+        _id: objectId('resource-id'),
+        slug: 'players-guide',
+        title: 'Players Guide',
+        format: 'pdf',
+        status: 'published',
+        accessPolicy: 'public',
+        currentRelease: {
+          provider: 'external',
+          assetKey: 'https://cdn.example.com/players-guide.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 1234,
+        },
+      });
+
+      const result = await new ResourceHandler().prepareConsumableResource('resource-id');
+
+      expect(mockPlayerFindOne).not.toHaveBeenCalled();
+      expect(mockRagFindOne).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        streamUrl: 'https://cdn.example.com/players-guide.pdf',
+        contentType: 'application/pdf',
+        contentLength: 1234,
+        fileName: 'players-guide',
+      });
+    });
+
+    it('blocks entitlement resources when unauthenticated', async () => {
+      mockResourceFindById.mockResolvedValue({
+        _id: objectId('resource-id'),
+        status: 'published',
+        accessPolicy: 'entitlement',
+      });
+
+      await expect(new ResourceHandler().prepareConsumableResource('resource-id')).rejects.toMatchObject({
+        statusCode: 401,
+        message: 'Authentication is required to access this resource',
+      });
+    });
   });
 });
 
@@ -249,6 +295,42 @@ describe('ResourceService', () => {
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
     expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'inline; filename="players-guide.pdf"');
     expect(res.setHeader).toHaveBeenCalledWith('Content-Length', '1234');
+    expect(pipe).toHaveBeenCalledWith(res);
+  });
+
+  it('streams public resources without requiring auth context', async () => {
+    jest.spyOn(ResourceHandler.prototype, 'prepareConsumableResource').mockResolvedValue({
+      streamUrl: 'https://cdn.example.com/public-guide.pdf',
+      contentType: 'application/pdf',
+      contentLength: 4321,
+      fileName: 'public-guide.pdf',
+    });
+
+    const stream = new Readable({ read() {} });
+    const pipe = jest.fn();
+    stream.pipe = pipe as any;
+    mockAxiosGet.mockResolvedValue({
+      headers: {},
+      data: stream,
+    });
+
+    const service = new ResourceService();
+    const req = {
+      params: { id: 'resource-id' },
+    } as any;
+    const res = {
+      setHeader: jest.fn(),
+    } as any;
+
+    await service.streamPublicResource(req, res);
+
+    expect(ResourceHandler.prototype.prepareConsumableResource).toHaveBeenCalledWith('resource-id', undefined);
+    expect(mockAxiosGet).toHaveBeenCalledWith('https://cdn.example.com/public-guide.pdf', {
+      responseType: 'stream',
+    });
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Disposition', 'inline; filename="public-guide.pdf"');
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Length', '4321');
     expect(pipe).toHaveBeenCalledWith(res);
   });
 });

@@ -1,11 +1,12 @@
 import { ErrorUtil } from '../../../middleware/ErrorUtil';
-import { CRUDHandler } from '../../../utils/baseCRUD';
+import { CRUDHandler, PaginationOptions } from '../../../utils/baseCRUD';
 import { CloudinaryHandler } from '../../upload/handlers/CloudinaryHandler';
 import PlayerModel from '../../profiles/player/model/PlayerModel';
 import type { IResource } from '../models/Resource';
 import Resource from '../models/Resource';
 import RAG from '../models/RAG';
 import slugify from 'slugify';
+import mongoose from 'mongoose';
 
 export interface ConsumableResourcePayload {
   streamUrl: string;
@@ -68,6 +69,47 @@ export class ResourceHandler extends CRUDHandler<IResource> {
     this.normalizeResourceData(data, false);
   }
 
+  async fetch(id: string): Promise<any | null> {
+    // check if the id is a valid MongoDB ObjectId, if not, we will attempt to find the resource by key or slug
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      return await this.Schema.findById(id).lean();
+    }
+    return await this.Schema.findOne({
+      $or: [{ key: id }, { slug: id }],
+    }).lean();
+  }
+
+  async fetchPublic(id: string): Promise<any | null> {
+    const query = mongoose.Types.ObjectId.isValid(id)
+      ? { _id: id, status: 'published' }
+      : { status: 'published', $or: [{ key: id }, { slug: id }] };
+    const resource = await this.Schema.findOne(query).lean();
+    if (!resource) return null;
+    return this.toPublicResource(resource);
+  }
+
+  async fetchAllPublic(options: PaginationOptions): Promise<{ entries: any[]; metadata: any[] }[]> {
+    const result = await this.Schema.aggregate([
+      {
+        $match: {
+          $and: [{ status: 'published' }, ...options.filters],
+          ...(options.query.length > 0 && { $or: options.query }),
+        },
+      },
+      { $sort: options.sort },
+      {
+        $facet: {
+          metadata: [{ $count: 'totalCount' }, { $addFields: { page: options.page, limit: options.limit } }],
+          entries: [{ $skip: (options.page - 1) * options.limit }, { $limit: options.limit }],
+        },
+      },
+    ]);
+
+    if (result[0]?.entries) {
+      result[0].entries = result[0].entries.map((entry: any) => this.toPublicResource(entry));
+    }
+    return result;
+  }
   async getMyResources(authenticatedUserId: string): Promise<MyResourcePayload[]> {
     const playerProfile = await PlayerModel.findOne({ user: authenticatedUserId as any });
     if (!playerProfile) {
@@ -114,12 +156,7 @@ export class ResourceHandler extends CRUDHandler<IResource> {
       .filter((entry): entry is MyResourcePayload => Boolean(entry));
   }
 
-  async prepareConsumableResource(resourceId: string, authenticatedUserId: string): Promise<ConsumableResourcePayload> {
-    const playerProfile = await PlayerModel.findOne({ user: authenticatedUserId as any });
-    if (!playerProfile) {
-      throw new ErrorUtil('Player profile not found', 404);
-    }
-
+  async prepareConsumableResource(resourceId: string, authenticatedUserId?: string): Promise<ConsumableResourcePayload> {
     const resource = await this.Schema.findById(resourceId);
     if (!resource) {
       throw new ErrorUtil('Resource not found', 404);
@@ -129,24 +166,31 @@ export class ResourceHandler extends CRUDHandler<IResource> {
       throw new ErrorUtil('Resource is not available', 403);
     }
 
-    if (resource.accessPolicy !== 'entitlement') {
-      throw new ErrorUtil('This resource is not configured for entitlement consumption', 400);
+    if (resource.accessPolicy === 'entitlement') {
+      if (!authenticatedUserId) {
+        throw new ErrorUtil('Authentication is required to access this resource', 401);
+      }
+
+      const playerProfile = await PlayerModel.findOne({ user: authenticatedUserId as any });
+      if (!playerProfile) {
+        throw new ErrorUtil('Player profile not found', 404);
+      }
+
+      const entitlement = await RAG.findOne({
+        userId: playerProfile._id.toString(),
+        resourceId: resource._id.toString(),
+        status: 'active',
+        permissions: 'view',
+        $or: [{ expiresAt: { $exists: false } }, { expiresAt: null }, { expiresAt: { $gt: new Date() } }],
+      });
+
+      if (!entitlement) {
+        throw new ErrorUtil('You do not have access to this resource', 403);
+      }
     }
 
-    const entitlement = await RAG.findOne({
-      userId: playerProfile._id.toString(),
-      resourceId: resource._id.toString(),
-      status: 'active',
-      permissions: 'view',
-      $or: [
-        { expiresAt: { $exists: false } },
-        { expiresAt: null },
-        { expiresAt: { $gt: new Date() } },
-      ],
-    });
-
-    if (!entitlement) {
-      throw new ErrorUtil('You do not have access to this resource', 403);
+    if (resource.accessPolicy !== 'entitlement' && resource.accessPolicy !== 'public') {
+      throw new ErrorUtil(`Unsupported resource access policy: ${resource.accessPolicy}`, 400);
     }
 
     if (resource.currentRelease.provider === 'cloudinary') {
@@ -190,7 +234,10 @@ export class ResourceHandler extends CRUDHandler<IResource> {
   }
 
   private buildFileName(slug: string, title: string, extension?: string): string {
-    const baseName = (slug || title || 'resource').replace(/[^a-z0-9-_]+/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    const baseName = (slug || title || 'resource')
+      .replace(/[^a-z0-9-_]+/gi, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
     const normalizedExtension = (extension || '').replace(/^\./, '');
 
     return normalizedExtension ? `${baseName}.${normalizedExtension}` : baseName;
@@ -213,7 +260,7 @@ export class ResourceHandler extends CRUDHandler<IResource> {
       data.authors = this.normalizeStringArray(data.authors);
     }
 
-    if ('currentRelease' in data || isCreate) {
+    if ('currentRelease' in data) {
       this.validateCurrentRelease(data.currentRelease);
     }
   }
@@ -241,16 +288,34 @@ export class ResourceHandler extends CRUDHandler<IResource> {
     }
 
     if (!String(currentRelease.version || '').trim()) {
-      throw new ErrorUtil('Resource currentRelease version is required', 400);
+      throw new ErrorUtil('Resource currentRelease.version is required', 400);
     }
 
     if (!['cloudinary', 's3', 'external'].includes(currentRelease.provider)) {
-      throw new ErrorUtil('Resource currentRelease provider is invalid', 400);
+      throw new ErrorUtil('Resource currentRelease.provider is invalid', 400);
     }
 
     if (!String(currentRelease.assetKey || '').trim()) {
-      throw new ErrorUtil('Resource currentRelease assetKey is required', 400);
+      // if assetKey is not provided, but the resource has been created (i.e. sizeBytes or mimeType is present), we can assume the assetKey is missing
+      // otherwise, its probable that the client is simply creating/updating the resource in multiple steps (first create without currentRelease, then upload asset, then update with currentRelease), so we allow assetKey to be missing in that case
+      if (currentRelease.sizeBytes || currentRelease.mimeType) {
+        throw new ErrorUtil('Resource currentRelease.assetKey is required when sizeBytes or mimeType is provided', 400);
+      }
     }
+  }
+
+  private toPublicResource(resource: any): object {
+    const { currentRelease, ...rest } = resource;
+    return {
+      ...rest,
+      currentRelease: currentRelease
+        ? {
+            version: currentRelease.version,
+            sizeBytes: currentRelease.sizeBytes,
+            publishedAt: currentRelease.publishedAt,
+          }
+        : undefined,
+    };
   }
 
   private toOwnedResource(resource: any): MyResourcePayload['resource'] {

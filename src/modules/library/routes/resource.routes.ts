@@ -13,7 +13,10 @@ router.get('/health', (req, res) => {
 });
 
 router.route('/mine').get(AuthMiddleware.protect as any, service.getMyResources);
+router.route('/:id/stream').get(service.streamPublicResource);
 router.route('/:id/consume').get(AuthMiddleware.protect as any, service.consumeResource);
+router.route('/').get(service.getPublicResources);
+router.route('/:id').get(service.getPublicResource); 
 
 router.use(AuthMiddleware.protect as any, AuthMiddleware.authorizeRoles(['admin']) as any);
 router.route('/').get(service.getResources).post(service.create);

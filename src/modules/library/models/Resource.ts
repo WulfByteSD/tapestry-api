@@ -63,7 +63,7 @@ const ResourceSchema = new mongoose.Schema<IResource>(
     currentRelease: {
       version: { type: String, required: true },
       provider: { type: String, enum: ['cloudinary', 's3', 'external'], required: true },
-      assetKey: { type: String, required: true },
+      assetKey: { type: String },
       mimeType: { type: String },
       sizeBytes: { type: Number },
       publishedAt: { type: Date },
