@@ -49,7 +49,7 @@ export interface CharacterType extends mongoose.Document {
       // Rare escape hatch for future modules that add extra sub-aspects:
       extra?: Record<string, number>; // stored as Map in Mongo
     };
-
+    dtn?: number;
     skills: Record<string, number>;
     features: string[];
     resources: {
@@ -94,6 +94,7 @@ const CharacterSchema = new mongoose.Schema(
     sheet: {
       archetypeKey: { type: String, trim: true },
       weaveLevel: { type: Number, default: 0, min: 0 },
+      dtn: { type: Number, default: 10 }, // Base DTN, can be modified by rules or conditions
       profile: {
         title: { type: String, trim: true },
         bio: { type: String, trim: true },

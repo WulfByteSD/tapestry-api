@@ -28,7 +28,7 @@ export interface PlayerType extends mongoose.Document {
 
 const PlayerSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'Auth', required: true },
     roles: {
       type: [String],
       enum: ['player', 'storyweaver'],

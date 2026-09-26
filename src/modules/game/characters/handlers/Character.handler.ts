@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import { CRUDHandler, PaginationOptions } from '../../../../utils/baseCRUD';
 import CharacterModel, { CharacterType } from '../model/CharacterModel';
@@ -26,6 +25,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
           aspects: data.sheet.aspects,
           hp: data.sheet.resources?.hp || { current: 0, max: 0, temp: 0 },
           threads: data.sheet.resources?.threads || { current: 0, max: 0, temp: 0 },
+          dtn: data.sheet.dtn || 10, // default DTN if not provided
         };
 
         // Apply rules
@@ -37,6 +37,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
         }
         data.sheet.resources.hp = sheetData.hp;
         data.sheet.resources.threads = sheetData.threads;
+        data.sheet.dtn = sheetData.dtn;
       }
     } catch (error) {
       throw new ErrorUtil(error instanceof Error ? error.message : 'Character validation failed', 400);
@@ -58,7 +59,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     }
   }
 
-  protected async beforeUpdate(id: string, data: any): Promise<void> {
+  protected async beforeUpdate(_id: string, data: any): Promise<void> {
     // Prevent changing the player owner
     if (data.player) {
       throw new ErrorUtil('Cannot change character owner', 400);
@@ -93,6 +94,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
         aspects: character.sheet.aspects,
         hp: character.sheet.resources.hp,
         threads: character.sheet.resources.threads,
+        dtn: character.sheet.dtn,
       };
 
       // Apply rules (validates and calculates)
@@ -101,6 +103,11 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
       // Apply the rule calculations back to the document
       character.sheet.resources.hp = sheetData.hp;
       character.sheet.resources.threads = sheetData.threads;
+      character.sheet.dtn = sheetData.dtn;
+
+      // calculate protection for potential use in responses or events
+      const protection = calculateCharacterProtection(character);
+      character.set('sheet.resources.other.armor', protection);
     } catch (error) {
       throw new ErrorUtil(error instanceof Error ? error.message : 'Character validation failed', 400);
     }

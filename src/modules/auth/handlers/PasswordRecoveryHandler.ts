@@ -7,6 +7,7 @@ export class PasswordRecoveryHandler {
     const user = await User.findOne({ email });
     if (!user) {
       // Soft fail if the user does not exist
+      console.warn(`Password reset requested for non-existent email: ${email}`);
       return { success: false };
     }
     // Generate token + expiry

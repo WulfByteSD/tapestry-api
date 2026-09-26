@@ -17,6 +17,10 @@ export default class AuthService {
     try {
       const result = await this.registerHandler.execute(req.body);
 
+      // emit event for new user registration - this can trigger welcome emails, onboarding flows, etc.
+      eventBus.publish('user.registered', {
+        user: result.user,
+      });
       eventBus.publish('email.verify', {
         user: result.user,
       });

@@ -3,6 +3,12 @@ import streamifier from 'streamifier';
 
 export class CloudinaryHandler {
   constructor() {
+    console.info('[CloudinaryHandler] Configuring Cloudinary client', {
+      hasCloudName: Boolean(process.env.CLOUDINARY_CLOUD_NAME),
+      hasApiKey: Boolean(process.env.CLOUDINARY_KEY),
+      hasApiSecret: Boolean(process.env.CLOUDINARY_SECRET),
+    });
+
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
       api_key: process.env.CLOUDINARY_KEY!,
@@ -27,7 +33,15 @@ export class CloudinaryHandler {
     original_filename: string;
     resource_type: string;
     format: string;
+    bytes?: number;
   }> {
+    console.info('[CloudinaryHandler] Starting upload', {
+      fileName,
+      folder,
+      bytes: fileBuffer.length,
+      resourceType: 'auto',
+    });
+
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -37,14 +51,39 @@ export class CloudinaryHandler {
           // unique_filename: true, // change to false if you want exact filename retention
         },
         (error, result) => {
-          if (error) return reject(error);
-          if (!result) return reject(new Error('Empty upload result from Cloudinary'));
+          if (error) {
+            console.error('[CloudinaryHandler] Upload failed', {
+              fileName,
+              folder,
+              message: error.message,
+              httpCode: (error as any).http_code,
+            });
+            return reject(error);
+          }
+
+          if (!result) {
+            console.error('[CloudinaryHandler] Upload failed with empty Cloudinary result', {
+              fileName,
+              folder,
+            });
+            return reject(new Error('Empty upload result from Cloudinary'));
+          }
+
+          console.info('[CloudinaryHandler] Upload completed', {
+            fileName,
+            publicId: result.public_id,
+            resourceType: result.resource_type,
+            format: result.format,
+            bytes: result.bytes,
+          });
+
           return resolve({
             public_id: result.public_id,
             secure_url: result.secure_url,
             original_filename: result.original_filename,
             resource_type: result.resource_type,
             format: result.format,
+            bytes: result.bytes,
           });
         }
       );
@@ -59,6 +98,40 @@ export class CloudinaryHandler {
   async deleteFile(publicId: string): Promise<void> {
     await cloudinary.uploader.destroy(publicId, {
     });
+  }
+
+  /**
+   * Looks up an uploaded Cloudinary asset and returns its canonical delivery URL.
+   * Tries common resource types because uploads use `resource_type: auto`.
+   */
+  async getAsset(publicId: string): Promise<{
+    secure_url: string;
+    bytes?: number;
+    format?: string;
+    resource_type: string;
+    original_filename?: string;
+  }> {
+    const resourceTypes: Array<'raw' | 'image' | 'video'> = ['raw', 'image', 'video'];
+
+    for (const resourceType of resourceTypes) {
+      try {
+        const asset = await cloudinary.api.resource(publicId, { resource_type: resourceType });
+        return {
+          secure_url: asset.secure_url,
+          bytes: asset.bytes,
+          format: asset.format,
+          resource_type: asset.resource_type,
+          original_filename: asset.original_filename,
+        };
+      } catch (error: any) {
+        if (error?.http_code === 404) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new Error(`Cloudinary asset not found for public id: ${publicId}`);
   }
 
   /**

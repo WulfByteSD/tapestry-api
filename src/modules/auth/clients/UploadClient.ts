@@ -1,12 +1,12 @@
 import { CloudinaryService } from "../../upload/services/CloudinaryService";
 
 export interface UploadClient{
-  uploadUserFile: (req: any, res: any) => Promise<{ url: string; fileName: string }[] | void>;
+  uploadUserFile: (req: any, res: any) => Promise<void>;
   deleteFile: (req: any, res: any) => Promise<void>;
 }
 
 export class LocalUploadClient implements UploadClient {
-  async uploadUserFile(req: any, res: any): Promise<{ url: string; fileName: string }[] | void> {
+  async uploadUserFile(req: any, res: any): Promise<void> {
     // Implement local file upload logic here
     throw new Error('Method not implemented.');
   }

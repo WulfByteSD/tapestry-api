@@ -1,5 +1,6 @@
 import { ErrorUtil } from '../../../middleware/ErrorUtil';
 import User, { AuthType } from '../../auth/model/Auth';
+import PlayerModel from '../../profiles/player/model/PlayerModel';
 import { EmailService } from '../email/EmailService';
 import Notification from '../model/Notification';
 
@@ -12,6 +13,7 @@ export default class UserEvents {
     if (!user) {
       throw new ErrorUtil('User not found', 404);
     }
+    const profile = await PlayerModel.findOne({ user: user._id as any }).lean();
 
     // Create a notification
     await Notification.insertNotification(
@@ -27,8 +29,11 @@ export default class UserEvents {
       await EmailService.sendEmail({
         to: user.email,
         subject: 'Your Password Has Been Updated',
-        templateId: 'd-661458f3132544d3a0a192ff1455ae52',
+        templateId: 'auto-pass-reset-tapestry',
         data: {
+          name: profile?.displayName,
+          signInUrl: `https://app.tapestry-rpg.com/`,
+          supportEmail: 'support@tapestry-ttrpg.com',
           currentYear: new Date().getFullYear(),
           subject: 'Your Password Has Been Updated',
           password: newPassword,
