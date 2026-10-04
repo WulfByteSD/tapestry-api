@@ -1,0 +1,16 @@
+{
+    auto_https disable_redirects
+}
+
+# Docker Desktop forwards local HTTPS to the API running on Windows.
+https://localhost:5443 {
+    tls internal
+    # HTTP upstreams preserve the incoming Host, including :5443, by default.
+    reverse_proxy host.docker.internal:5000
+}
+
+# Optional: use the admin app through this HTTPS origin for browser testing.
+https://localhost:3443 {
+    tls internal
+    reverse_proxy host.docker.internal:3000
+}

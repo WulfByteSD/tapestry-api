@@ -11,8 +11,8 @@ export class LoreHierarchyService {
    * Rebuild the hierarchy fields (ancestorIds, depth) for all descendants of a node
    * Typically called after a node's parent or hierarchy changes
    */
-  async rebuildDescendantHierarchy(rootNodeId: string): Promise<void> {
-    const root = await LoreNodeModel.findById(rootNodeId).select('_id settingKey ancestorIds depth').lean();
+  async rebuildDescendantHierarchy(rootNodeId: string, session?: mongoose.ClientSession): Promise<void> {
+    const root = await LoreNodeModel.findById(rootNodeId).session(session || null).select('_id settingKey ancestorIds depth').lean();
 
     if (!root) return;
 
@@ -20,6 +20,7 @@ export class LoreHierarchyService {
       ancestorIds: new mongoose.Types.ObjectId(rootNodeId) as any,
       status: { $ne: 'archived' },
     })
+      .session(session || null)
       .sort({ depth: 1, sortOrder: 1, name: 1 })
       .lean();
 
@@ -55,7 +56,8 @@ export class LoreHierarchyService {
               ancestorIds: current.ancestorIds,
               depth: current.depth,
             },
-          }
+          },
+          { session }
         );
 
         queue.push({
@@ -76,6 +78,7 @@ export class LoreHierarchyService {
     options?: {
       currentNodeId?: string;
       fallbackSettingKey?: string;
+      session?: mongoose.ClientSession;
     }
   ): Promise<void> {
     const settingKey = String(data.settingKey || options?.fallbackSettingKey || '').trim();
@@ -98,7 +101,7 @@ export class LoreHierarchyService {
       throw new ErrorUtil('Invalid parentId', 400);
     }
 
-    const parent = await LoreNodeModel.findById(rawParentId).select('_id settingKey parentId ancestorIds depth').lean();
+    const parent = await LoreNodeModel.findById(rawParentId).session(options?.session || null).select('_id settingKey parentId ancestorIds depth').lean();
 
     if (!parent) {
       throw new ErrorUtil('Parent lore node not found', 404);

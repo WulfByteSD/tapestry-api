@@ -20,6 +20,7 @@ import cluster from 'cluster';
 import os from 'os';
 import NotificationService from './modules/notification/services/NotificationService';
 import NCampaignActivityService from './modules/game/campaigns/service/NCampaignActivityService';
+import { createContentMcpRoutes } from './modules/game/content/mcp/route';
 
 // Routes
 //const middlewares
@@ -33,6 +34,9 @@ notificationService.init();
 new NCampaignActivityService().init();
 
 const app = express();
+// MCP owns its protocol validation, body limits, authentication, and origin policy.
+// Mount before the app's generic parsers/sanitizers so they cannot alter MCP envelopes.
+app.use(createContentMcpRoutes());
 
 const PORT = Number(process.env.PORT) || 5000;
 
