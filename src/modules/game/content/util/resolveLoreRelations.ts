@@ -22,7 +22,7 @@ function normalizeRelationInput(input: LoreRelationInput) {
   };
 }
 
-export async function resolveLoreRelations(params: { settingKey: string; relations?: LoreRelationInput[]; currentNodeId?: string }) {
+export async function resolveLoreRelations(params: { settingKey: string; relations?: LoreRelationInput[]; currentNodeId?: string; session?: mongoose.ClientSession }) {
   const { settingKey, relations, currentNodeId } = params;
 
   if (!Array.isArray(relations) || relations.length === 0) {
@@ -76,6 +76,7 @@ export async function resolveLoreRelations(params: { settingKey: string; relatio
     status: { $ne: 'archived' },
     $or: orConditions,
   })
+    .session(params.session || null)
     .select('_id key name')
     .lean();
 
