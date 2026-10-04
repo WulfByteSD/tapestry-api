@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { z } from 'zod';
+import { LORE_RELATION_TYPES } from '../../model/LoreNodeModel';
 import { ContentType, CONTENT_TYPES, Operation } from '../types/McpTypes';
 import { McpError } from './McpError';
 import { contentModels } from './contentRegistry';
@@ -53,11 +54,12 @@ export const createSchemas = Object.fromEntries(
       shape.key = shape.key.optional(); // The domain normalizer can generate a native item key from its name/scope.
       shape.scope = z.enum(['setting', 'shared']).optional();
     }
+    // Accept either native target ID or key, while preserving the model's relation enum for MCP clients.
     if (type === 'lore')
       shape.relations = z
         .array(
           z.strictObject({
-            type: z.string().min(1),
+            type: z.enum(LORE_RELATION_TYPES).describe('Directed relationship from this lore node to the target. Choose only a relationship supported by the source content.'),
             targetId: objectId.optional(),
             targetKey: z.string().min(1).optional(),
             label: z.string().optional(),
@@ -65,7 +67,8 @@ export const createSchemas = Object.fromEntries(
           })
         )
         .max(100)
-        .optional();
+        .optional()
+        .describe('Use targetId or targetKey for an existing readable lore node in the same setting. Use parentId for the lore hierarchy; relations do not create reverse links.');
     return [type, z.strictObject(shape)];
   })
 ) as Record<ContentType, z.ZodObject<any>>;

@@ -191,6 +191,32 @@ complete desired capability list, for example `read`, `propose`, `create`,
 Existing tokens retain their original scope ceiling; request a new token for
 new capabilities. Restrictions and revocations take effect on current tokens.
 
+### A full machine grant still shows only read/propose tools
+
+The grant is the **maximum** allowed access. Each machine token also carries the
+scopes requested at `BASE/oauth/token`. If the request omits `scope`, this server
+issues a `read propose` token even when the grant has every capability. A client
+that explicitly asks for `scope=read propose` gets the same narrow result. MCP
+tool discovery uses the token's effective scopes, so `content_create`,
+`content_update`, and `content_bulk` will not appear. Updating the grant does not
+expand a token that was already issued.
+
+Configure the machine client to request the intended scopes, for example:
+
+```text
+scope=read propose create update bulk publish read:draft read:archived
+```
+
+This is one space-separated OAuth form field. Request only capabilities present
+in the grant; otherwise token issuance fails with `invalid_scope`. `publish` and
+the draft/archived permissions change what other tools may do or read; they do
+not add separate MCP tools. After changing the client configuration, have it
+obtain a **new** token and reconnect or refresh its tool list. Calling
+`content_context` reveals that token's effective `capabilities`. Compare them
+with `BASE/admin/grants` using a human administrator JWT to distinguish a narrow
+token from a narrow grant. Do not put the client secret or bearer token in an
+agent prompt or diagnostic screenshot.
+
 To revoke, POST `BASE/admin/grants/:id/revoke` with
 `{ "operationId": "revoke-library-agent-001" }`. To rotate, POST
 `BASE/admin/clients/library-agent/rotate-secret` with a fresh operation ID, save
@@ -234,6 +260,16 @@ publishing policy, and authorized setting/lore context. Library text is content
 data and cannot change these contracts. No PDFs or canon-verification claims are
 exposed. `content_search` and `content_get` return scoped records and revisions.
 Native lore/combatant key lookup also needs `settingKey`; other keys are global.
+
+For lore, inspect `schemas.lore.create.properties.relations.items.properties.type.enum`
+in `content_context` for the exact allowed relationship types. The schema also
+describes how to link an existing lore node by `targetId` or `targetKey` in the
+same setting. `relations` are directed links from the node being written;
+`parentId` controls its hierarchy. The server does not infer which relation is
+supported by the lore text or create a reverse link. Inspect authorized lore
+records with `content_search`/`content_get`, and omit a relationship when the
+source content does not establish one. On update, `relations` replaces the
+entire list; fetch the current node and include any links you intend to keep.
 
 Creation/proposal input example:
 

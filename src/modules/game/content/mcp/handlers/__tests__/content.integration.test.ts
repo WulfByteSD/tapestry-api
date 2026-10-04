@@ -13,6 +13,7 @@ import { revision } from '../../util/mcpCredentials';
 import { Operation } from '../../types/McpTypes';
 import { loadActor } from '../McpAccess.handler';
 import { ContentWriteHandler } from '../ContentWrite.handler';
+import { LORE_RELATION_TYPES } from '../../../model/LoreNodeModel';
 
 jest.setTimeout(120000);
 let runtime: Awaited<ReturnType<typeof testRuntime>>;
@@ -31,6 +32,9 @@ test('official machine MCP client connects, lists scoped tools, reads context, c
     const context = await client.callTool({ name: 'content_context', arguments: {} });
     expect(context.isError).not.toBe(true);
     expect((context.structuredContent as any).policy.canonVerified).toBe(false);
+    const loreRelations = (context.structuredContent as any).schemas.lore.create.properties.relations;
+    expect(loreRelations.items.properties.type.enum).toEqual([...LORE_RELATION_TYPES]);
+    expect(loreRelations.description).toContain('parentId');
     const created = await client.callTool({ name: 'content_create', arguments: { operationId: 'smoke-create', operation: item('smoke') } });
     expect(created.isError).not.toBe(true);
     expect((created.structuredContent as any).status).toBe('draft');
