@@ -26,7 +26,7 @@ export class McpOAuthHandler {
     const intent = opaque(), csrf = opaque();
     await McpCredential.create({ hash: digest(intent), kind: 'intent', clientId: client.clientId, resource: this.config.resource,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000), csrfHash: digest(csrf), payload: query });
-    return { name: client.name, scopes, intent, csrf };
+    return { name: client.name, scopes, intent, csrf, callbackOrigin: new URL(query.redirect_uri).origin };
   }
 
   /** Authenticate only the approved account, verify CSRF, and issue a code after explicit consent. */
