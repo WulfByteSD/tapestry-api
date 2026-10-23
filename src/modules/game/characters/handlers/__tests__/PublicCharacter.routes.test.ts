@@ -28,7 +28,11 @@ const fixture = () => ({
     weaveLevel: 0, dtn: 13, aspects: { might: { strength: 1, presence: 0 } },
     resources: { hp: { current: 9, max: 13, temp: 2 }, threads: { current: 1, max: 3 }, other: { armor: 2 } },
     skills: { survival: 1 }, features: [], inventory: [], learnedAbilities: [], conditions: [],
-    noteCards: [{ title: 'Private journal', body: 'A secret' }], futurePrivateField: 'never-public',
+    noteCards: [
+      { id: 'private', title: 'Private journal', body: 'A secret', isPrivate: true },
+      { id: 'legacy', title: 'Legacy journal', body: 'An older secret' },
+      { id: 'public', title: 'Shared journal', body: '<h2>A discovery</h2><p>For everyone.</p>', kind: 'general', isPrivate: false, internalSecret: 'never-public' },
+    ], futurePrivateField: 'never-public',
   },
 });
 
@@ -58,7 +62,12 @@ it('serves an anonymous character card with saved stats and without private fiel
   expect(payload.sheet.dtn).toBe(13);
   expect(payload.derived.effectiveAbilities).toEqual([]);
   for (const key of ['player', 'campaign', 'forkedFrom', 'meta', 'internalSecret']) expect(payload).not.toHaveProperty(key);
-  expect(payload.sheet).not.toHaveProperty('noteCards');
+  expect(payload.sheet.noteCards).toEqual([
+    { id: 'public', title: 'Shared journal', body: '<h2>A discovery</h2><p>For everyone.</p>', kind: 'general', isPrivate: false },
+  ]);
+  expect(JSON.stringify(payload)).not.toContain('A secret');
+  expect(JSON.stringify(payload)).not.toContain('An older secret');
+  expect(JSON.stringify(payload)).not.toContain('never-public');
   expect(payload.sheet).not.toHaveProperty('futurePrivateField');
   expect(mockFindOne).toHaveBeenCalledWith({ _id: id, 'meta.deletedAt': null });
   expect(mockAbilities).not.toHaveBeenCalled();

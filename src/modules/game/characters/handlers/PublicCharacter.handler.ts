@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import CharacterModel from '../model/CharacterModel';
 import { buildEffectiveAbilities } from '../helpers/buildEffectiveAbilities';
 
-/** Anonymous, read-only character card. Ownership and journal data stay private. */
+/** Anonymous, read-only character card. Only explicitly public notes are shared. */
 export async function getPublicCharacter(req: Request, res: Response): Promise<void> {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
@@ -23,12 +23,25 @@ export async function getPublicCharacter(req: Request, res: Response): Promise<v
     const sheet = character.sheet;
     const learnedAbilities = sheet.learnedAbilities ?? [];
     const inventory = sheet.inventory ?? [];
+    // Legacy notes without a privacy flag stay private. Select note fields explicitly
+    // so future internal fields cannot become public through this endpoint.
+    const noteCards = (sheet.noteCards ?? []).filter((note) => note.isPrivate === false).map((note) => ({
+      id: note.id,
+      title: note.title,
+      body: note.body,
+      kind: note.kind,
+      pinned: note.pinned,
+      tags: note.tags,
+      isPrivate: false,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+    }));
     // The existing enrichment helper requires at least one reference for its $or query.
     const hasAbilities = learnedAbilities.length > 0 || inventory.some((item) => item.grantedAbilities?.length);
     const effectiveAbilities = hasAbilities ? await buildEffectiveAbilities({ learnedAbilities, inventory }) : [];
 
     // Explicitly select the public contract. Never spread the stored character/sheet:
-    // player, campaign, forkedFrom, meta, and sheet.noteCards are not public fields.
+    // player, campaign, forkedFrom, meta, and private notes are not public fields.
     res.status(200).json({
       success: true,
       payload: {
@@ -53,6 +66,7 @@ export async function getPublicCharacter(req: Request, res: Response): Promise<v
           learnedAbilities,
           conditions: sheet.conditions,
           inventory,
+          noteCards,
         },
         derived: { effectiveAbilities }, 
       },

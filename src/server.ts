@@ -21,11 +21,11 @@ import os from 'os';
 import NotificationService from './modules/notification/services/NotificationService';
 import NCampaignActivityService from './modules/game/campaigns/service/NCampaignActivityService';
 import { createContentMcpRoutes } from './modules/game/content/mcp/route';
+import { characterNoteHtml } from './middleware/characterNoteHtml';
 
 // Routes
 //const middlewares
 const mongoSanitize = require('express-mongo-sanitize');
-const xss = require('xss-clean');
 const hpp = require('hpp');
 
 const notificationService = new NotificationService();
@@ -63,7 +63,7 @@ app.use(
   })
 );
 //prevent XSS attacks
-app.use(xss());
+app.use(characterNoteHtml);
 //prevent http paramter pollution
 app.use(hpp());
 

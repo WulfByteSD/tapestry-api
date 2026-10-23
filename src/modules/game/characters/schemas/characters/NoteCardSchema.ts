@@ -11,6 +11,7 @@ export interface NoteCard {
   body: string;
   kind: NoteCardKind;
   pinned?: boolean;
+  isPrivate?: boolean;
   tags?: string[];
   createdAt: Date;
   updatedAt: Date;
@@ -27,6 +28,7 @@ export const NoteCardSchema = new mongoose.Schema(
       default: 'general',
     },
     pinned: { type: Boolean, default: false },
+    isPrivate: { type: Boolean, default: true },
     tags: { type: [String], default: [] },
     createdAt: { type: Date, default: () => new Date() },
     updatedAt: { type: Date, default: () => new Date() },
