@@ -9,12 +9,14 @@ import memberRoutes from './members';
 import characterRequestRoutes from './characterRequests';
 import campaignCharacterRoutes from './campaignCharacters';
 import activityRoutes from './activity';
+import CampaignMutationService from '../service/CampaignMutation.service';
 
 const router = express.Router();
 
 const service = new CampaignService();
 const joinRequestService = new JoinRequestService();
 const characterRequestService = new CharacterRequestService();
+const mutationService = new CampaignMutationService();
 
 router.route('/health').get((req, res) => {
   res.status(200).json({
@@ -34,7 +36,7 @@ router.route('/mine').get(service.playerCampaigns);
 // Standard CRUD operations
 router.route('/').post(service.create).get(service.getResources);
 
-router.route('/:id').get(service.getResource).put(service.updateResource).delete(service.removeResource);
+router.route('/:id').get(service.getResource).put(mutationService.authorize, service.updateResource).delete(mutationService.authorize, service.removeResource);
 
 // Nested route handlers
 router.use('/:id/meta', metaRoutes);

@@ -45,6 +45,8 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // using this allows us to accept body data
+// Bound adventure authoring payloads separately; other API JSON limits stay unchanged.
+app.use('/api/v1/game/adventures', express.json({ limit: '2mb' }));
 app.use(express.json({}));
 app.use(fileUpload({ parseNested: false, useTempFiles: false, tempFileDir: '/tmp/' }));
 
