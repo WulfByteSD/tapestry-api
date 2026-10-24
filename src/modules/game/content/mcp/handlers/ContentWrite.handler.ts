@@ -97,7 +97,8 @@ export class ContentWriteHandler {
     }
     if (!before) [doc] = await Model.create([after], { session });
     else {
-      const filter = { _id: before._id, updatedAt: before.updatedAt, __v: before.__v ?? { $exists: false } };
+      const filter = { _id: before._id, updatedAt: before.updatedAt, __v: before.__v ?? { $exists: false },
+        ...(operation.type === 'adventures' ? { revision: before.revision } : {}) };
       const updated = { ...after, __v: (before.__v || 0) + 1, updatedAt: new Date() };
       doc = await Model.findOneAndReplace(filter, updated, { session, returnDocument: 'after', runValidators: true });
       if (!doc) throw new McpError('conflict', 'Content changed during this operation.', 409);

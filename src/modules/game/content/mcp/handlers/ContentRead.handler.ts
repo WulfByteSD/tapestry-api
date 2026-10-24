@@ -11,11 +11,15 @@ export class ContentReadHandler {
   async search(actor: Actor, args: { type: ContentType; query?: string; settingKey?: string; status?: string; page?: number; limit?: number }) {
     requireCapability(actor, 'read');
     const filter: any = visibility(actor, args.type);
+    if (args.type === 'adventures' && args.settingKey) throw new McpError('validation', 'Adventures do not have setting keys.');
     if (args.status) filter.$and = [{ status: args.status }];
     if (args.settingKey) filter.$and = [...(filter.$and || []), { [args.type === 'settings' ? 'key' : args.type === 'lore' ? 'settingKey' : 'settingKeys']: args.settingKey }];
     if (args.query) {
       const escaped = args.query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      filter.$or = [{ name: { $regex: escaped, $options: 'i' } }, { key: { $regex: escaped, $options: 'i' } }];
+      const fields = args.type === 'adventures'
+        ? (actor.capabilities.includes('read:draft') ? ['title', 'summary'] : ['publishedContent.title', 'publishedContent.summary'])
+        : ['name', 'key'];
+      filter.$or = fields.map(field => ({ [field]: { $regex: escaped, $options: 'i' } }));
     }
     const page = args.page || 1,
       limit = args.limit || 25;
@@ -32,6 +36,8 @@ export class ContentReadHandler {
   /** Resolve an ID or native domain key without revealing whether unauthorized records exist. */
   async get(actor: Actor, args: { type: ContentType; id?: string; key?: string; settingKey?: string }) {
     requireCapability(actor, 'read');
+    if (args.type === 'adventures' && (!args.id || args.key || args.settingKey))
+      throw new McpError('validation', 'Adventures require an ID and do not have domain or setting keys.');
     if (!args.id && !args.key) throw new McpError('validation', 'Supply an ID or domain key.');
     if (!args.id && ['lore', 'combatants'].includes(args.type) && !args.settingKey) throw new McpError('validation', 'This domain key requires a setting key.');
     const lookup: any = args.id ? { _id: args.id } : { key: args.key };
@@ -44,7 +50,7 @@ export class ContentReadHandler {
   /** Describe effective contracts and policy; include only authorized setting and lore context. */
   async context(actor: Actor, settingKey?: string) {
     requireCapability(actor, 'read');
-    const schemas = Object.fromEntries(actor.contentTypes.map((type) => [type, { create: z.toJSONSchema(createSchemas[type]), update: z.toJSONSchema(updateSchemas[type]) }]));
+    const schemas = Object.fromEntries(actor.contentTypes.map((type) => [type, { create: z.toJSONSchema(createSchemas[type], { io: 'input' }), update: z.toJSONSchema(updateSchemas[type], { io: 'input' }) }]));
     return {
       capabilities: actor.capabilities,
       contentTypes: actor.contentTypes,
@@ -61,6 +67,14 @@ export class ContentReadHandler {
         proposalPublishing: 'Proposals may request published changes; an authorized human must approve them.',
         revisionRequired: true,
         operationIdRequired: true,
+        adventures: {
+          requiresShared: true,
+          updateRequires: 'read:draft',
+          contentUpdate: 'Full working-draft replacement; libraryResourceId is immutable.',
+          publication: 'Only an explicit status: published replaces the published snapshot.',
+          reads: 'Working drafts require read:draft; otherwise reads return published snapshots.',
+          attachments: 'Use the protected adventure REST API; storage identifiers are never returned.',
+        },
       },
       settings: await this.search(actor, { type: 'settings', settingKey, limit: 50 }),
       lore: settingKey ? await this.search(actor, { type: 'lore', settingKey, limit: 50 }) : undefined,

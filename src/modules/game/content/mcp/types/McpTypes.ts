@@ -1,6 +1,6 @@
 
 
-export const CONTENT_TYPES = ['items', 'skills', 'abilities', 'settings', 'lore', 'combatants'] as const;
+export const CONTENT_TYPES = ['items', 'skills', 'abilities', 'settings', 'lore', 'combatants', 'adventures'] as const;
 export const CAPABILITIES = ['read', 'propose', 'create', 'update', 'bulk', 'publish', 'read:draft', 'read:archived'] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 export type Capability = (typeof CAPABILITIES)[number];

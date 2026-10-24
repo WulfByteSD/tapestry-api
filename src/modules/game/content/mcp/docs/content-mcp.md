@@ -320,6 +320,50 @@ returns `conflict`, remains pending, and changes nothing; have the author submit
 a fresh proposal after rereading content. Agents can inspect their own proposal
 outcomes using `content_proposal_get` but cannot approve them.
 
+## Adventures
+
+The existing tools also accept `type: "adventures"` for search, ID lookup,
+creation, updates, proposals, and bulk operations. Both machine and interactive
+connections use the same catalog. Existing grants are unchanged: a human manager
+must explicitly add `adventures` to `contentTypes` and enable `shared: true`, since
+adventures have no setting membership. This is delegated library authoring access;
+it does not grant player ownership or share material with campaigns.
+
+Create with `data: { libraryResourceId, content, status? }`. The library Resource
+must already exist with `kind: "module"` and `accessPolicy: "entitlement"`;
+one adventure is allowed per Resource. `content` uses the adventure REST contract
+(title, summary, sections, resources, encounters), exposed by `content_context`.
+Search uses title/summary; adventures have no native key or setting filter.
+
+Update with `data: { content?, status? }`, an adventure ID, and the opaque MCP
+revision returned alongside `record` (not the numeric adventure revision inside
+the record). `content` replaces the complete working draft. Updates additionally
+require `read:draft`; preserve stable IDs and include all content you intend to
+retain. `libraryResourceId` cannot change. Matching material IDs/kinds retain
+their protected attachments. Attachment uploads/removals use the existing
+protected REST routes; MCP responses expose safe metadata, never storage keys.
+
+Omitting status leaves the published snapshot unchanged, even when editing a
+published adventure. Explicit `status: "published"` publishes the full working
+draft; the library Resource and existing referenced combatants must be published,
+and maps must have protected attachments. Direct edits to published adventures
+and direct publication require `publish`; proposals use the existing human review
+flow. Drafts cannot be deleted or adventures archived through these MCP tools.
+
+With `read:draft`, reads show the working draft; otherwise they show only the
+published snapshot. Archived reads additionally require `read:archived`.
+Encounter references are filtered by the connection's combatant permissions.
+New combatant references must exist and be readable; removed catalog references
+already in an adventure remain stored, following the adventure domain rules.
+Adventure mutations increment the numeric REST revision as well as invalidating
+the MCP revision, so concurrent REST edits/uploads conflict safely.
+
+The MCP transport's existing 1 MiB request limit still applies (including the
+operation envelope and any bulk entries); larger adventure payloads need the
+adventure REST API. No database migration or seed change is required. Admin
+clients that hard-code content type options need to include `adventures` before
+they can configure these grants through their UI.
+
 ## Operational behavior and verification
 
 MCP bodies are limited to 1 MiB; OAuth forms to 64 KiB. Result pages and batches

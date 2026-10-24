@@ -7,6 +7,7 @@ export function requireCapability(actor: Actor, ...caps: Capability[]) {
 }
 /** Resolve setting membership using each content model's native field names. */
 export function recordSettings(type: ContentType, doc: any): string[] {
+  if (type === 'adventures') return []; // Adventure authoring requires an explicit type grant and shared-content access.
   if (type === 'settings') return [doc.key];
   if (type === 'lore') return [doc.settingKey];
   return Array.isArray(doc.settingKeys) ? doc.settingKeys : [];
@@ -17,6 +18,7 @@ export function canAccess(actor: Actor, type: ContentType, doc: any, readStatus 
   const settings = recordSettings(type, doc);
   if (!settings.every((k) => (k === 'shared' ? actor.shared : actor.settingKeys.includes(k)))) return false;
   if (!settings.length && !actor.shared) return false;
+  if (type === 'adventures' && readStatus && !actor.capabilities.includes('read:draft') && !doc.publishedContent) return false;
   return (
     !readStatus ||
     doc.status === 'published' ||
@@ -33,6 +35,8 @@ export function visibility(actor: Actor, type: ContentType): Record<string, any>
   const keys = [...actor.settingKeys, ...(actor.shared ? ['shared'] : [])];
   const statuses = ['published', ...(actor.capabilities.includes('read:draft') ? ['draft'] : []), ...(actor.capabilities.includes('read:archived') ? ['archived'] : [])];
   if (!actor.contentTypes.includes(type)) return { _id: { $in: [] } };
+  if (type === 'adventures') return actor.shared ? { status: { $in: statuses },
+    ...(!actor.capabilities.includes('read:draft') ? { publishedContent: { $exists: true, $ne: null } } : {}) } : { _id: { $in: [] } };
   const membership =
     type === 'settings'
       ? { key: { $in: keys } }

@@ -3,6 +3,7 @@ import { assertAccess, visibility } from './mcpPolicy';
 import { revision } from './mcpCredentials';
 import { contentModels } from './contentRegistry';
 import { SkillDefinitionModel } from '../../model/SkillDefinition';
+import { adventureView } from '../../../adventures/helpers/adventure.helpers';
 
 /** Return a revision of the original record while removing references to content the caller cannot read. */
 export async function readableRecord(actor: Actor, type: ContentType, doc: any): Promise<any> {
@@ -12,7 +13,10 @@ export async function readableRecord(actor: Actor, type: ContentType, doc: any):
 
 /** Filter relationships in records and proposal patches against the caller's current readable grant. */
 export async function redactReferences(actor: Actor, type: ContentType, doc: any): Promise<any> {
-  const result = JSON.parse(JSON.stringify(doc));
+  const source = type === 'adventures' && doc._id
+    ? adventureView(actor.capabilities.includes('read:draft') ? doc : { ...doc, ...doc.publishedContent, revision: doc.publishedRevision })
+    : doc;
+  const result = JSON.parse(JSON.stringify(source));
   const visibleIds = async (target: ContentType, ids: string[]) =>
     new Set(
       (
@@ -30,6 +34,15 @@ export async function redactReferences(actor: Actor, type: ContentType, doc: any
           .lean()
       ).map((d: any) => d.key)
     );
+  if (type === 'adventures') {
+    // Stored records and normalized proposal inputs use different content envelopes.
+    const content = result.content || result;
+    const ids = (content.encounters || []).flatMap((encounter: any) => encounter.combatants.map((entry: any) => entry.combatantId));
+    const allowed = new Set((await contentModels.combatants.find({ $and: [
+      { _id: { $in: ids }, status: { $ne: 'archived' } }, visibility(actor, 'combatants'),
+    ] }).select('_id').lean()).map((entry: any) => String(entry._id)));
+    for (const encounter of content.encounters || []) encounter.combatants = encounter.combatants.filter((entry: any) => allowed.has(entry.combatantId));
+  }
   if (type === 'lore') {
     const ids = [result.parentId, ...(result.ancestorIds || []), ...(result.relations || []).map((r: any) => r.targetId)].filter(Boolean);
     const allowed = await visibleIds('lore', ids);

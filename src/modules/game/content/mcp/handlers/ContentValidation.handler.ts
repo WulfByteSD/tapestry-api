@@ -8,6 +8,7 @@ import { assertAccess, requireCapability, visibility } from '../util/mcpPolicy';
 import { revision } from '../util/mcpCredentials';
 import { contentModels } from '../util/contentRegistry';
 import { parseOperation, rejectUnsafeKeys, excluded } from '../util/contentContracts';
+import { prepareAdventure } from './AdventureContent.handler';
 
 /** Require referenced content to exist inside the caller's current readable grant. */
 async function reference(actor: Actor, type: ContentType, query: any, session?: ClientSession): Promise<any> {
@@ -67,6 +68,7 @@ export async function prepare(actor: Actor, raw: Operation, proposal = false, se
     if (before.status === 'archived') throw new McpError('validation', 'Archived records cannot be updated through MCP.');
     if (revision(before) !== operation.revision) throw new McpError('conflict', 'Content changed; read it again before updating.', 409);
   }
+  if (operation.type === 'adventures') return prepareAdventure(actor, operation, before, proposal, session);
   let data = { ...operation.data };
   if (operation.action === 'create') {
     data.status ||= 'draft';

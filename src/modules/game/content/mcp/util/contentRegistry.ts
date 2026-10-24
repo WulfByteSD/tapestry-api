@@ -5,6 +5,7 @@ import AbilityModel from '../../model/AbilityDefinitionModel';
 import SettingModel from '../../model/SettingModel';
 import LoreModel from '../../model/LoreNodeModel';
 import CombatantModel from '../../model/CombatantModel';
+import { Adventure } from '../../../adventures/models/AdventureModel';
 import { ContentType } from '../types/McpTypes';
 
 export const contentModels: Record<ContentType, mongoose.Model<any>> = {
@@ -14,4 +15,5 @@ export const contentModels: Record<ContentType, mongoose.Model<any>> = {
   settings: SettingModel,
   lore: LoreModel,
   combatants: CombatantModel,
+  adventures: Adventure,
 };

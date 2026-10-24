@@ -4,6 +4,7 @@ import { LORE_RELATION_TYPES } from '../../model/LoreNodeModel';
 import { ContentType, CONTENT_TYPES, Operation } from '../types/McpTypes';
 import { McpError } from './McpError';
 import { contentModels } from './contentRegistry';
+import { contentInput } from '../../../adventures/types/adventure.contracts';
 
 export const excluded = new Set(['_id', '__v', 'createdAt', 'updatedAt', 'ancestorIds', 'depth']);
 const objectId = z.string().regex(/^[a-fA-F0-9]{24}$/, 'Expected a MongoDB object ID.');
@@ -48,6 +49,11 @@ function pathType(path: any): z.ZodType {
 }
 export const createSchemas = Object.fromEntries(
   CONTENT_TYPES.map((type) => {
+    if (type === 'adventures') return [type, z.strictObject({
+      libraryResourceId: objectId,
+      content: contentInput.describe('Complete adventure content. Material attachments are managed through the protected adventure REST API.'),
+      status: z.enum(['draft', 'published']).optional(),
+    })];
     const shape = schemaShape(contentModels[type].schema, true);
     shape.status = z.enum(['draft', 'published']).optional();
     if (type === 'items') {
@@ -82,7 +88,12 @@ function partialObject(schema: z.ZodObject<any>): z.ZodObject<any> {
   return z.strictObject(Object.fromEntries(Object.entries(schema.shape).map(([key, field]) => [key, partialField(field as z.ZodType).optional()])));
 }
 export const updateSchemas = Object.fromEntries(
-  CONTENT_TYPES.map((type) => [type, partialObject(createSchemas[type].omit({ key: true, ...(type === 'items' ? { scope: true } : {}) }))])
+  CONTENT_TYPES.map((type) => [type, type === 'adventures'
+    ? z.strictObject({
+      content: contentInput.optional().describe('Full working-draft replacement; preserve stable section, material, and encounter IDs.'),
+      status: z.literal('published').optional().describe('Explicitly publish the working draft. Omit to leave the published snapshot unchanged.'),
+    }).refine(data => data.content !== undefined || data.status !== undefined, 'Supply content or a publication request.')
+    : partialObject(createSchemas[type].omit({ key: true, ...(type === 'items' ? { scope: true } : {}) }))])
 ) as Record<ContentType, z.ZodObject<any>>;
 export const operationIdSchema = z
   .string()
