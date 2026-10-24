@@ -22,7 +22,7 @@ export class McpOAuthService {
       await this.limits.consume('consent', req.ip || 'unknown', 10);
       const consent = await this.handler.beginConsent(req.query);
       res.cookie('tapestry_mcp_csrf', consent.csrf, { httpOnly: true, secure: true, sameSite: 'strict', path: `${MCP_PATH}/oauth`, maxAge: 300000 });
-      res.set('Content-Security-Policy', `default-src 'none'; form-action 'self' ${consent.callbackOrigin}; frame-ancestors 'none'; base-uri 'none'`);
+      res.set('Content-Security-Policy', `default-src 'none'; form-action 'self' ${consent.callbackOrigins.join(' ')}; frame-ancestors 'none'; base-uri 'none'`);
       res.set('Referrer-Policy', 'strict-origin');
       res.type('html').send(consentPage(consent.name, consent.scopes, consent.intent, consent.csrf));
     } catch (error) {
