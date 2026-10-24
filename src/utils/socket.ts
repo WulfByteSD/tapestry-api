@@ -15,7 +15,12 @@ export default {
       },
       pingTimeout: 60000, // Keep the connection alive
     });
-    io.adapter(createAdapter(pubClient, subClient));
+    // The Redis adapter fans Socket.IO events out across clustered workers/instances.
+    // Production always runs clustered and needs it; dev runs a single process and
+    // shouldn't require a local Redis instance just to start the server.
+    if (process.env.NODE_ENV === 'production') {
+      io.adapter(createAdapter(pubClient, subClient));
+    }
     return io;
   },
   getIO: () => {
