@@ -18,11 +18,14 @@ export default class AdventureAuthoringHandler {
     const offset = parse(z.number().int().min(0).max(10000), page) * 50;
     return Adventure.find().select('_id title summary status revision libraryResourceId').sort({ _id: 1 }).skip(offset).limit(50).lean();
   }
-  private async validateCombatants(content: AdventureContent, published = false) {
-    const ids = [...new Set(content.encounters.flatMap((encounter) => encounter.combatants.map((entry) => entry.combatantId)))];
+  private async validateCombatants(content: AdventureContent, published = false, previous?: AdventureContent) {
+    const retained = new Set(previous?.encounters.flatMap(encounter => encounter.combatants.map(entry => entry.combatantId)) ?? []);
+    // Preserve existing references after catalog removal; newly added IDs still must resolve.
+    const ids = [...new Set(content.encounters.flatMap((encounter) => encounter.combatants.map((entry) => entry.combatantId)))].filter(id => published || !retained.has(id));
     if (!ids.length) return;
     const found = await Combatant.countDocuments({ _id: { $in: ids }, status: published ? 'published' : { $ne: 'archived' } });
-    if (found !== ids.length) throw new ErrorUtil('Encounter combatants must exist and be available (published when publishing)', 400);
+    const expected = published ? await Combatant.countDocuments({ _id: { $in: ids } }) : ids.length;
+    if (found !== expected) throw new ErrorUtil('Encounter combatants must exist and be available (published when publishing)', 400);
   }
 
   async create(actor: AdventureActor, input: unknown) {
@@ -39,7 +42,7 @@ export default class AdventureAuthoringHandler {
     const current = await this.access.load(id);
     if (current.revision !== data.revision) throw new ErrorUtil('Adventure changed; reload before editing', 409);
     // Top-level authoring fields are the working draft. Owner reads use only publishedContent.
-    await this.validateCombatants(data.content);
+    await this.validateCombatants(data.content, false, current);
     const resources = data.content.resources.map((resource) => ({
       ...resource,
       ...(current.resources.find((existing) => existing.id === resource.id && existing.kind === resource.kind)?.asset

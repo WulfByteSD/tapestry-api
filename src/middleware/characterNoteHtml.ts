@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import { captureAuthoringProse } from './authoringProse';
 
 const xss = require('xss-clean');
 const sanitize: RequestHandler = xss();
@@ -7,6 +8,7 @@ const sanitize: RequestHandler = xss();
 // through an HTML allowlist (or as text), rather than interpolating raw HTML.
 // Preserve only body strings; all other request data still passes through xss.
 export const characterNoteHtml: RequestHandler = (req, res, next) => {
+  const restoreAuthoringProse = captureAuthoringProse(req);
   const isCharacterUpdate = req.method === 'PUT' && /^\/api\/v1\/game\/characters\/[a-f\d]{24}\/?$/i.test(req.path);
   const arrays = isCharacterUpdate ? [req.body?.['sheet.noteCards'], req.body?.sheet?.noteCards] : [];
   const bodies = arrays.map((cards) => Array.isArray(cards)
@@ -21,6 +23,7 @@ export const characterNoteHtml: RequestHandler = (req, res, next) => {
         sanitizedArrays[arrayIndex][index].body = body;
       }
     }));
+    restoreAuthoringProse();
     next();
   });
 };

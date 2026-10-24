@@ -97,6 +97,9 @@ const CombatantSchema = new Schema(
       index: true,
     },
 
+    // Optional structured authoring values; origin remains the legacy display/search text.
+    origins: { type: [String], default: undefined },
+
     role: {
       type: String,
       trim: true,

@@ -1,4 +1,7 @@
 import express from 'express';
+import combatantRoutes from '../../content/route/combatant';
+import Combatant from '../../content/model/CombatantModel';
+import { characterNoteHtml } from '../../../../middleware/characterNoteHtml';
 import { createServer, Server } from 'http';
 import { AddressInfo } from 'net';
 import { PassThrough, Readable } from 'stream';
@@ -61,7 +64,9 @@ integration('real HTTP adventure boundaries', () => {
     await Promise.all([Adventure.init(), AdventureShare.init(), Resource.init(), Player.init(), Product.init(), Auth.init()]);
     const app = express();
     app.use(express.json({ limit: '2mb' }));
+    app.use(characterNoteHtml);
     app.use(root, createAdventureRoutes());
+    app.use('/api/v1/game/content/combatants', combatantRoutes);
     app.use('/api/v1/game/campaigns', campaignRoutes);
     app.use('/api/v1/commerce', commerceRoutes);
     app.use(errorHandler);
@@ -77,7 +82,7 @@ integration('real HTTP adventure boundaries', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    await Promise.all([Adventure.deleteMany({}), AdventureShare.deleteMany({}), Resource.deleteMany({}), RAG.deleteMany({}),
+    await Promise.all([Adventure.deleteMany({}), Combatant.deleteMany({}), AdventureShare.deleteMany({}), Resource.deleteMany({}), RAG.deleteMany({}),
       Player.deleteMany({}), Admin.deleteMany({}), Auth.deleteMany({}), Campaign.deleteMany({}), Product.deleteMany({})]);
     await Auth.collection.insertMany(accounts.map(name => ({ _id: ids[name], email: `${name}@example.test`, permissions: [], isActive: true })));
     await new Admin({ user: ids.admin, roles: ['admin'], permissions: [] }).save();
@@ -105,6 +110,27 @@ integration('real HTTP adventure boundaries', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
+  it('offers distinct guide-independent catalog origins only to admins without mutating records', async () => {
+    const statline = { hp: 12, defenseTN: 10, harm: 'Light (3)' };
+    await Combatant.create([{ key: 'a', name: 'A', statline, origin: 'Shadow' },
+      { key: 'b', name: 'B', statline, origin: 'shadow / Custom Name', origins: ['shadow', 'Custom Name'] },
+      { key: 'c', name: 'C', statline, origin: 'Mortal', origins: ['Old value'] }]);
+    const before = JSON.stringify(await Combatant.find().sort({ key: 1 }).lean());
+    const result = await call('/api/v1/game/content/combatants/origins', 'admin');
+    expect(result.status).toBe(200); expect(result.data.payload).toEqual(['Custom Name', 'Mortal', 'Shadow']);
+    expect(JSON.stringify(await Combatant.find().sort({ key: 1 }).lean())).toBe(before);
+    expect((await call('/api/v1/game/content/combatants/origins', 'guest')).status).toBe(403);
+  });
+  it('preserves authoring prose through the production sanitizer and HTTP validation', async () => {
+    const rich = '<!--tapestry:richtext:v1--><p><strong>A clue</strong></p>';
+    const result = await call(`${root}/admin/${adventureId}`, 'admin', 'PUT', { revision: 2, content: {
+      title: 'Rich edition', summary: 'Literal <b>plain</b>', sections: [{ id: 'scene', title: 'Scene', storyText: rich, storyweaverNotes: rich }],
+      resources: [{ id: 'letter', title: 'Letter', kind: 'handout', visibility: 'players', text: rich }], encounters: [],
+    } });
+    expect(result.status).toBe(200); expect(result.data.payload.summary).toBe('Literal <b>plain</b>');
+    expect(result.data.payload.sections[0].storyText).toBe(rich); expect(result.data.payload.resources[0].text).toBe(rich);
+    const read = await call(`${root}/admin/${adventureId}`, 'admin'); expect(read.data.payload.sections[0].storyweaverNotes).toBe(rich);
+  });
   it('enforces actual JWT authentication and admin-profile permissions on read, write and delivery routes', async () => {
     for (const path of [`${root}/${adventureId}`, `${root}/admin`, `${root}/${adventureId}/resources/letter/asset`])
       expect((await call(path)).status).toBe(401);

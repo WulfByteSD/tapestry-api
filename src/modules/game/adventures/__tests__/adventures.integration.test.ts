@@ -12,7 +12,9 @@ import Player from '../../../profiles/player/model/PlayerModel';
 import Resource from '../../../library/models/Resource';
 import RAG from '../../../library/models/RAG';
 import Campaign from '../../campaigns/model/CampaignModel';
+import Setting from '../../content/model/SettingModel';
 import Combatant from '../../content/model/CombatantModel';
+import CombatantHandler from '../../content/handlers/Combatant.handler';
 import { RAGHandler } from '../../../library/handlers/Rag.handler';
 
 // Explicit opt-in to a preinstalled local binary. Never download a database or use an application connection string.
@@ -36,7 +38,7 @@ integration('adventure persistence and revocation (isolated MongoDB)', () => {
   }, 60000);
   afterAll(async () => { await mongoose.disconnect(); if (mongo) await mongo.stop(); });
   beforeEach(async () => {
-    await Promise.all([Adventure.deleteMany({}), AdventureShare.deleteMany({}), Player.deleteMany({}), Resource.deleteMany({}), RAG.deleteMany({}), Campaign.deleteMany({}), Combatant.deleteMany({})]);
+    await Promise.all([Adventure.deleteMany({}), AdventureShare.deleteMany({}), Player.deleteMany({}), Resource.deleteMany({}), RAG.deleteMany({}), Campaign.deleteMany({}), Combatant.deleteMany({}), Setting.deleteMany({})]);
     ownerProfile = String((await new Player({ user: owner.userId, roles: ['storyweaver'] }).save())._id);
     guestProfile = String((await new Player({ user: guest.userId, roles: ['player'] }).save())._id);
     libraryId = String((await Resource.create({ key: 'adventure', slug: 'adventure', title: 'Adventure', kind: 'module', format: 'web',
@@ -53,6 +55,71 @@ integration('adventure persistence and revocation (isolated MongoDB)', () => {
     campaignId = String((await new Campaign({ name: 'Campaign', owner: ownerProfile, status: 'active', members: [{ player: guestProfile, role: 'player' }] }).save())._id);
   });
 
+  it('creates, validates, edits, archives and deletes referenced Unwoven without rewriting module content', async () => {
+    const catalog = new CombatantHandler();
+    await Setting.create({ key: 'test', name: 'Test setting' });
+    const data = { key: 'sentry', name: 'Sentry', settingKeys: ['test'], status: 'published',
+      statline: { hp: 12, defenseTN: 10, harm: 'Light (3)', armor: 1, actions: 1 },
+      attacks: [{ name: 'Strike', harm: 'Light (3)', range: 'Melee', notes: 'Test attack' }],
+      abilities: [{ name: 'Stand fast', text: 'Holds the line', cooldown: 'Once per scene' }] };
+    await expect(catalog.create({ ...data, statline: { ...data.statline, hp: 0 } })).rejects.toMatchObject({ name: 'ValidationError' });
+    await expect(catalog.create({ ...data, settingKeys: ['missing'] })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(catalog.create({ ...data, loreNodeId: new mongoose.Types.ObjectId() })).rejects.toMatchObject({ statusCode: 400 });
+    const first = await catalog.create({ ...data, origins: ['Revenant', 'Construct'], origin: 'Revenant / Construct' });
+    const second = await catalog.create({ ...data, key: 'scout', name: 'Scout' });
+    const firstId = String(first._id), secondId = String(second._id);
+    await expect(catalog.update(firstId, { statline: { ...data.statline, hp: 0 } })).rejects.toMatchObject({ name: 'ValidationError' });
+    await catalog.update(firstId, { name: 'Veteran sentry', statline: { ...data.statline, hp: 18 } });
+    expect((await catalog.fetch(firstId)).statline.hp).toBe(18);
+    expect((await catalog.fetch(firstId)).origins).toEqual(['Revenant', 'Construct']);
+    await Setting.deleteMany({ key: 'test' });
+    await catalog.update(firstId, { settingKeys: ['test'], name: 'Retained legacy setting' });
+    await expect(catalog.update(firstId, { settingKeys: ['test', 'another-missing'] })).rejects.toMatchObject({ statusCode: 400 });
+    expect((await catalog.fetch(firstId)).abilities[0].text).toBe('Holds the line');
+    const current = await access.load(moduleId);
+    const content = { title: current.title, sections: current.sections.map(section => ({ ...section, encounterIds: ['watch'] })), resources: current.resources,
+      encounters: [{ id: 'watch', title: 'The watch', notes: 'A recommendation', combatants: [{ combatantId: firstId, quantity: 2 }, { combatantId: secondId, quantity: 1 }] }] };
+    await authoring.update(admin, moduleId, { revision: 1, content });
+    await authoring.changeStatus(admin, moduleId, { revision: 2, status: 'published' });
+    const stored = JSON.stringify(await Adventure.findById(moduleId).lean());
+    await catalog.update(firstId, { status: 'archived' });
+    expect((await reference.ownerRead(owner, moduleId)).encounters[0].combatants).toEqual([{ combatantId: secondId, quantity: 1 }]);
+    await catalog.update(firstId, { status: 'published' });
+    expect((await reference.ownerRead(owner, moduleId)).encounters[0].combatants).toHaveLength(2);
+    await catalog.delete(firstId);
+    const section = await reference.section(owner, moduleId, 'a');
+    expect(section.encounters[0].combatants).toEqual([{ combatantId: secondId, quantity: 1 }]);
+    expect(section.resources.map(resource => resource.id)).toEqual(['handout']);
+    await catalog.delete(secondId);
+    expect((await reference.ownerRead(owner, moduleId)).encounters[0].combatants).toEqual([]);
+    expect(JSON.stringify(await Adventure.findById(moduleId).lean())).toBe(stored);
+    await expect(catalog.update(firstId, { name: 'Already removed' })).rejects.toMatchObject({ statusCode: 404 });
+    // Subsequent unrelated authoring still succeeds without removing stored references.
+    await authoring.update(admin, moduleId, { revision: 3, content: { ...content, title: 'Revised story' } });
+    await authoring.changeStatus(admin, moduleId, { revision: 4, status: 'published' });
+    expect((await reference.ownerRead(owner, moduleId)).encounters[0].combatants).toEqual([]);
+  });
+  it('roundtrips marked rich strings and legacy literal text through authoring, publication and shared reads', async () => {
+    const rich = '<!--tapestry:richtext:v1--><p><strong>Read aloud</strong></p><ul><li>Clue</li></ul>';
+    const plain = 'Literal <b>text</b> stays plain.';
+    const current = await access.load(moduleId);
+    const content = { title: current.title, summary: plain,
+      sections: current.sections.map(section => ({ ...section, storyText: rich, storyweaverNotes: rich, context: plain })),
+      resources: current.resources.map(resource => ({ ...resource, text: rich })), encounters: [] };
+    await authoring.update(admin, moduleId, { revision: 1, content });
+    expect((await access.load(moduleId)).sections[0].storyText).toBe(rich);
+    await authoring.changeStatus(admin, moduleId, { revision: 2, status: 'published' });
+    const published = await reference.ownerRead(owner, moduleId);
+    expect(published.summary).toBe(plain); expect(published.sections[0].storyText).toBe(rich);
+    await sharing.share(owner, campaignId, moduleId, 'handout');
+    expect((await sharing.sharedRead(guest, campaignId, moduleId, 'handout')).text).toBe(rich);
+    const catalog = new CombatantHandler();
+    const record = await catalog.create({ key: 'rich-sentry', name: 'Sentry', statline: { hp: 12, defenseTN: 10, harm: 'Legacy notation' },
+      backgroundBehavior: plain, notes: { gm: rich }, abilities: [{ name: 'Stand', text: rich }] });
+    const saved = await catalog.fetch(String(record._id));
+    expect(saved.backgroundBehavior).toBe(plain); expect(saved.notes.gm).toBe(rich); expect(saved.abilities[0].text).toBe(rich);
+    expect(saved.statline.harm).toBe('Legacy notation');
+  });
   it('persists references, freely navigable cycles and a module-wide entitlement', async () => {
     const module = await reference.ownerRead(owner, moduleId);
     expect(module.sections[0].links[0].sectionId).toBe('c');

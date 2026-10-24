@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import AdventureCombatantsHandler from './AdventureCombatants.handler';
 import Resource from '../../../library/models/Resource';
 import RAG from '../../../library/models/RAG';
 import { Adventure, AdventureRecord } from '../models/AdventureModel';
@@ -13,7 +14,7 @@ export default class AdventureReferenceHandler {
     const adventure = publishedContent(await this.access.load(id));
     await this.access.library(adventure.libraryResourceId, true);
     if (!(await this.access.owns(actor, adventure))) throw unavailable();
-    return adventure;
+    return new AdventureCombatantsHandler().resolve(adventure);
   }
   async list(actor: AdventureActor, page = 0) {
     const offset = parse(z.number().int().min(0).max(10000), page) * 50;

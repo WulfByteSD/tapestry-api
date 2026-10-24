@@ -66,6 +66,7 @@ beforeEach(() => {
   jest.spyOn(AdventureShare, 'updateOne').mockResolvedValue({ acknowledged: true } as any);
   jest.spyOn(AdventureShare, 'deleteOne').mockResolvedValue({ acknowledged: true, deletedCount: 1 });
   jest.spyOn(Combatant, 'countDocuments').mockResolvedValue(1);
+  jest.spyOn(Combatant, 'find').mockReturnValue(lean([{ _id: bid }]));
 });
 
 describe('validated authoring', () => {
@@ -261,5 +262,53 @@ describe('HTTP contracts', () => {
     campaign.members = [];
     const shared = await request(`/campaigns/${cid}/${aid}/resources/map/asset`);
     expect(shared.status).toBe(404); expect(shared.open).not.toHaveBeenCalled();
+  });
+});
+
+describe('missing Unwoven references', () => {
+  it('silently omits missing IDs in mixed owner and section recommendations without changing stored content', async () => {
+    (RAG.exists as jest.Mock).mockResolvedValue({ _id: rid });
+    const missing = '999999999999999999999999';
+    adventure.publishedContent.encounters[0].combatants.push({ combatantId: missing, quantity: 4 });
+    adventure.publishedContent.sections[0].encounterIds = ['ambush'];
+    const before = JSON.stringify(adventure);
+    const result = await reference.ownerRead(user, aid);
+    expect(result.encounters[0].combatants).toEqual([{ combatantId: bid, quantity: 3 }]);
+    expect(result.sections).toEqual(adventure.publishedContent.sections);
+    expect(result.resources).toEqual(adventure.publishedContent.resources);
+    const section = await reference.section(user, aid, 'a');
+    expect(section.encounters[0].combatants).toEqual([{ combatantId: bid, quantity: 3 }]);
+    expect(section.resources.map(r => r.id)).toEqual(['map']);
+    expect(JSON.stringify(adventure)).toBe(before);
+  });
+  it('returns an empty recommendation when every Unwoven was removed, including HTTP reads', async () => {
+    (RAG.exists as jest.Mock).mockResolvedValue({ _id: rid });
+    (Combatant.find as jest.Mock).mockReturnValue(lean([]));
+    adventure.publishedContent.sections[0].encounterIds = ['ambush'];
+    const response = await request(`/${aid}/sections/a`);
+    expect(response.status).toBe(200);
+    expect(response.payload.payload.encounters[0].combatants).toEqual([]);
+    expect(response.payload.payload.encounters[0].title).toBe('Ambush');
+    expect(response.payload.payload.resources).toHaveLength(1);
+  });
+  it('retains stale IDs when saving unrelated authoring changes but rejects new missing IDs', async () => {
+    (Combatant.countDocuments as jest.Mock).mockResolvedValue(0);
+    const update = jest.spyOn(Adventure, 'findOneAndUpdate').mockResolvedValue(adventure as any);
+    const content = { ...adventure.publishedContent, title: 'Edited after catalog removal' };
+    await authoring.update(admin, aid, { revision: 0, content });
+    expect(update).toHaveBeenCalled();
+    expect(content.encounters[0].combatants[0].combatantId).toBe(bid);
+    content.encounters[0].combatants.push({ combatantId: '999999999999999999999999', quantity: 1 });
+    await expect(authoring.update(admin, aid, { revision: 0, content })).rejects.toMatchObject({ statusCode: 400 });
+  });
+  it('allows publication with deleted references but still rejects existing unpublished combatants', async () => {
+    (Combatant.countDocuments as jest.Mock).mockResolvedValue(0);
+    const update = jest.spyOn(Adventure, 'findOneAndUpdate').mockResolvedValue(adventure as any);
+    adventure.resources = adventure.resources.filter(r => r.kind !== 'map');
+    adventure.sections[0].resourceIds = [];
+    await authoring.changeStatus(admin, aid, { revision: 0, status: 'published' });
+    expect(update).toHaveBeenCalled();
+    (Combatant.countDocuments as jest.Mock).mockImplementation((query: any) => Promise.resolve(query.status ? 0 : 1));
+    await expect(authoring.changeStatus(admin, aid, { revision: 0, status: 'published' })).rejects.toMatchObject({ statusCode: 400 });
   });
 });

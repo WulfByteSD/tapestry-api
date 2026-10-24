@@ -12,6 +12,10 @@ router.get('/health', (req, res) => {
   });
 });
 
+// Explicit admin reads must precede the public /:id route.
+router.route('/admin').get(AuthMiddleware.protect as any, AuthMiddleware.authorizeRoles(['admin']) as any, service.getResources);
+router.route('/admin/:id').get(AuthMiddleware.protect as any, AuthMiddleware.authorizeRoles(['admin']) as any, service.getResource);
+
 router.route('/mine').get(AuthMiddleware.protect as any, service.getMyResources);
 router.route('/:id/stream').get(service.streamPublicResource);
 router.route('/:id/consume').get(AuthMiddleware.protect as any, service.consumeResource);

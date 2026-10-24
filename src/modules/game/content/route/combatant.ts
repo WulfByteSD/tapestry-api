@@ -8,6 +8,7 @@ const service = new CombatantService();
 router.use(AuthMiddleware.protect);
 
 router.get('/', service.getResources);
+router.get('/origins', AuthMiddleware.authorizeRoles(['admin']) as any, service.getOrigins);
 router.get('/:id', service.getResource);
 
 router.use(AuthMiddleware.authorizeRoles(['admin']) as any);
