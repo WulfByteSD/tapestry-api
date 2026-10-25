@@ -5,7 +5,7 @@ import CampaignModel, { CampaignRole } from '../model/CampaignModel';
 import CharacterModel from '../../characters/model/CharacterModel';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import ChatChannelModel, { ChatChannelDoc, ChatMode, ChatVisibility } from '../model/ChatChannelModel';
-import ChatMessageModel, { ChatMessageDoc, ChatSpeakerType } from '../model/ChatMessageModel';
+import ChatMessageModel, { ChatComposition, ChatMessageDoc, ChatSpeakerType } from '../model/ChatMessageModel';
 import ChatReadMarkerModel from '../model/ChatReadMarkerModel';
 import { emitChatToPlayers } from '../chat/chatEvents';
 
@@ -36,6 +36,39 @@ function requireNonEmpty(value: unknown, label: string, maxLength: number): stri
     throw new ErrorUtil(`${label} is required and must be ${maxLength} characters or fewer`, 400);
   }
   return value.trim();
+}
+
+function messageContent(body: any, speaker: ChatSpeakerType): { content: string; composition?: ChatComposition } {
+  if (body.composition === undefined) return { content: requireNonEmpty(body.content, 'Message content', MAX_MESSAGE_LENGTH) };
+  const input = body.composition;
+  if (speaker !== 'character' || !input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ErrorUtil('Action and dialogue must be text belonging to a character message.', 400);
+  }
+  let composition: ChatComposition;
+  if ('parts' in input) {
+    if (Object.keys(input).some((key) => key !== 'parts') || !Array.isArray(input.parts) || input.parts.length > 32 || input.parts.some((part: any) => !part || typeof part !== 'object' || Array.isArray(part) || Object.keys(part).some((key) => !['type', 'text'].includes(key)) || !['action', 'dialogue'].includes(part.type) || typeof part.text !== 'string' || part.text.length > MAX_MESSAGE_LENGTH)) throw new ErrorUtil('Use up to 32 action or dialogue sections, each containing text.', 400);
+    composition = { parts: input.parts.filter((part: any) => part.text.trim()).map((part: any) => ({ type: part.type, text: part.text })) };
+  } else {
+    // Preserve already-saved two-field messages and older clients without
+    // guessing at the structure of any freeform Markdown message.
+    if (Object.keys(input).some((key) => !['action', 'dialogue'].includes(key)) || typeof input.action !== 'string' || typeof input.dialogue !== 'string' || input.action.length > MAX_MESSAGE_LENGTH || input.dialogue.length > MAX_MESSAGE_LENGTH) throw new ErrorUtil('Action and dialogue must be text.', 400);
+    composition = { action: input.action, dialogue: input.dialogue };
+  }
+  const content = compositionParts(composition).filter((part) => part.text.trim()).map((part) => {
+    if (part.type === 'action') return part.text.trim();
+    const spoken = part.text.trim().replace(/[\\`*_{}\[\]()#+.!|<>-]/g, '\\$&');
+    return spoken.split(/\r?\n/).map((line) => `> ${line}`).join('\n');
+  }).join('\n\n');
+  return { content: requireNonEmpty(content, 'Combined action and dialogue', MAX_MESSAGE_LENGTH), composition };
+}
+
+function compositionParts(composition: ChatComposition) {
+  return composition.parts ?? [{ type: 'action' as const, text: composition.action }, { type: 'dialogue' as const, text: composition.dialogue }];
+}
+
+function sameComposition(left: any, right: any): boolean {
+  if (left?.parts || right?.parts) return JSON.stringify(left?.parts) === JSON.stringify(right?.parts);
+  return left?.action === right?.action && left?.dialogue === right?.dialogue;
 }
 
 function roleFor(campaign: any, playerId: string): CampaignRole | 'owner' | null {
@@ -145,7 +178,7 @@ export default class CampaignChatHandler {
         characterId: parent.speaker.character ? id(parent.speaker.character) : null,
         characterName: parent.speaker.characterName ?? null,
       },
-      content: parent.deletedAt ? '' : parent.content,
+      content: parent.deletedAt ? '' : parent.composition ? compositionParts(parent.composition).map((part) => part.text.trim()).filter(Boolean).join('\n') : parent.content,
       deletedAt: parent.deletedAt ?? null,
     };
   }
@@ -180,6 +213,7 @@ export default class CampaignChatHandler {
         avatar: message.deletedAt || message.speaker.type !== 'character' ? null : message.speaker.avatar !== undefined ? message.speaker.avatar : legacy.get(id(message.speaker.character)) ?? null,
       },
       content: message.deletedAt ? '' : message.content,
+      ...(!message.deletedAt && message.composition ? { composition: message.composition.parts ? { parts: message.composition.parts.map((part: any) => ({ type: part.type, text: part.text })) } : { action: message.composition.action, dialogue: message.composition.dialogue } } : {}),
       replyToMessageId: message.replyTo ? id(message.replyTo) : null,
       replyTo: await this.replySummary(message),
       editedAt: message.editedAt ?? null,
@@ -319,14 +353,14 @@ export default class CampaignChatHandler {
     if (channel.archived) throw new ErrorUtil('Archived channels are read-only', 403);
     if (context.role === 'observer') throw new ErrorUtil('Observers may read chat but cannot post', 403);
     const clientMessageId = requireNonEmpty(req.body.clientMessageId, 'clientMessageId', 128);
-    const content = requireNonEmpty(req.body.content, 'Message content', MAX_MESSAGE_LENGTH);
     const authorId = id(context.player._id);
     const speaker = await this.resolveSpeaker(channel.mode, req.body.speaker, context);
+    const { content, composition } = messageContent(req.body, speaker.type);
     const replyToId = req.body.replyToMessageId == null ? null : validId(req.body.replyToMessageId, 'reply message ID');
 
     const existing = await ChatMessageModel.findOne({ channel: channel._id, 'author.player': authorId, clientMessageId }).lean();
     if (existing) {
-      if (existing.content !== content || id(existing.replyTo ?? '') !== String(replyToId ?? '') || existing.speaker.type !== speaker.type || id(existing.speaker.character ?? '') !== id(speaker.character ?? '')) {
+      if (existing.content !== content || !sameComposition(existing.composition, composition) || id(existing.replyTo ?? '') !== String(replyToId ?? '') || existing.speaker.type !== speaker.type || id(existing.speaker.character ?? '') !== id(speaker.character ?? '')) {
         throw new ErrorUtil('clientMessageId was already used for a different message', 409);
       }
       return { status: 200, body: { success: true, payload: await this.messageDto(existing) } };
@@ -349,12 +383,13 @@ export default class CampaignChatHandler {
         author: { player: context.player._id, displayName: (context.player.displayName || 'Unknown').slice(0, 80), avatar: context.player.avatar ?? null },
         speaker,
         content,
+        composition,
         replyTo,
       });
     } catch (error: any) {
       if (error?.code !== 11000) throw error;
       const raced = await ChatMessageModel.findOne({ channel: channel._id, 'author.player': authorId, clientMessageId }).lean();
-      if (raced && raced.content === content && id(raced.replyTo ?? '') === String(replyToId ?? '') && raced.speaker.type === speaker.type && id(raced.speaker.character ?? '') === id(speaker.character ?? '')) {
+      if (raced && raced.content === content && sameComposition(raced.composition, composition) && id(raced.replyTo ?? '') === String(replyToId ?? '') && raced.speaker.type === speaker.type && id(raced.speaker.character ?? '') === id(speaker.character ?? '')) {
         return { status: 200, body: { success: true, payload: await this.messageDto(raced) } };
       }
       throw new ErrorUtil('clientMessageId was already used for a different message', 409);
@@ -380,7 +415,9 @@ export default class CampaignChatHandler {
     if (!channel || !canReadChannel(channel, id(context.player._id), context.role)) throw new ErrorUtil('Chat message not found', 404);
     if (channel.archived) throw new ErrorUtil('Archived channels are read-only', 403);
     if (id(message.author.player) !== id(context.player._id)) throw new ErrorUtil('You may only edit your own messages', 403);
-    message.content = requireNonEmpty(req.body.content, 'Message content', MAX_MESSAGE_LENGTH);
+    const edited = messageContent(req.body, message.speaker.type);
+    message.content = edited.content;
+    message.composition = edited.composition;
     message.editedAt = new Date();
     await message.save();
     const dto = await this.messageDto(message.toObject());
@@ -405,6 +442,7 @@ export default class CampaignChatHandler {
     const ownMessage = id(message.author.player) === id(context.player._id);
     if (!ownMessage && !isStoryweaver(context.role)) throw new ErrorUtil('Only Storyweavers may remove another player’s message', 403);
     message.content = '';
+    message.composition = undefined;
     message.deletedAt = new Date();
     await message.save();
     const dto = await this.messageDto(message.toObject());

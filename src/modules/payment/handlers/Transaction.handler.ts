@@ -169,7 +169,7 @@ export default class TransactionHandler {
             updatedAt: new Date(),
           },
         },
-        { new: true }
+        { returnDocument: 'after' }
       );
 
       return { success: true, data: voidReceipt };

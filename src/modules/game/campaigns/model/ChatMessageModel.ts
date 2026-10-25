@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 export type ChatSpeakerType = 'profile' | 'character' | 'narrator';
+export type ChatComposition = { action: string; dialogue: string; parts?: never } | { parts: { type: 'action' | 'dialogue'; text: string }[]; action?: never; dialogue?: never };
 
 export interface ChatMessageDoc extends mongoose.Document {
   campaign: mongoose.Types.ObjectId;
@@ -19,6 +20,7 @@ export interface ChatMessageDoc extends mongoose.Document {
     avatar?: string | null;
   };
   content: string;
+  composition?: ChatComposition;
   replyTo?: mongoose.Types.ObjectId | null;
   editedAt?: Date | null;
   deletedAt?: Date | null;
@@ -44,6 +46,11 @@ const ChatMessageSchema = new mongoose.Schema<ChatMessageDoc>(
       avatar: { type: String },
     },
     content: { type: String, required: function (this: any) { return !this.deletedAt; }, maxlength: 8000 },
+    composition: { type: new mongoose.Schema({
+      action: { type: String, maxlength: 8000 },
+      dialogue: { type: String, maxlength: 8000 },
+      parts: { type: [new mongoose.Schema({ type: { type: String, enum: ['action', 'dialogue'], required: true }, text: { type: String, required: true, maxlength: 8000 } }, { _id: false })], default: undefined },
+    }, { _id: false }), default: undefined },
     replyTo: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatMessage', default: null },
     editedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },

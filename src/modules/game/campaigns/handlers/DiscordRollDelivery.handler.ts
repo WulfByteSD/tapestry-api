@@ -48,7 +48,7 @@ export async function processNextDiscordRoll(): Promise<void> {
   const now = new Date();
   const gate = await DiscordDeliveryGate.findOneAndUpdate({ _id: GATE_ID, leaseUntil: { $lte: now }, cooldownUntil: { $lte: now } }, {
     $set: { token, leaseUntil: new Date(now.getTime() + LEASE_MS) },
-  }, { new: true }).lean();
+  }, { returnDocument: 'after' }).lean();
   if (!gate) return;
   try {
     // A process may have died after Discord accepted the POST. Never blindly replay it.
@@ -59,7 +59,7 @@ export async function processNextDiscordRoll(): Promise<void> {
     const roll = await RollLogModel.findOneAndUpdate({ 'discordDelivery.state': { $in: ['pending', 'retry'] }, 'discordDelivery.nextAttemptAt': { $lte: now } }, {
       $set: { 'discordDelivery.state': 'sending', 'discordDelivery.claimToken': token, 'discordDelivery.leaseUntil': new Date(now.getTime() + LEASE_MS) },
       $inc: { 'discordDelivery.attempts': 1 },
-    }, { new: true, sort: { 'discordDelivery.nextAttemptAt': 1, _id: 1 } }).select('+discordDelivery').lean();
+    }, { returnDocument: 'after', sort: { 'discordDelivery.nextAttemptAt': 1, _id: 1 } }).select('+discordDelivery').lean();
     if (!roll?.discordDelivery) return;
     const delivery = roll.discordDelivery;
     const claim = { _id: roll._id, 'discordDelivery.state': 'sending', 'discordDelivery.claimToken': token };

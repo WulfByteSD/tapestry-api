@@ -186,7 +186,7 @@ export class TicketHandler extends CRUDHandler<SupportType> {
       item._id,
       { ...data },
       {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       }
     );
