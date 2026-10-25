@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { socketAuthMiddleware } from './socketAuth';
 import { registerPresenceHandlers } from './presence/presenceHandlers';
+import { chatUserRoom, isChatReservedRoom } from '../modules/game/campaigns/chat/chatEvents';
 
 const colors = require('colors');
 
@@ -20,18 +21,22 @@ export default (io: Server) => {
 
   try {
     io.on('connection', (socket: Socket) => {
+      // Only the server enrolls a socket into its authenticated player's chat room.
+      socket.join(chatUserRoom(String(socket.data.playerId)));
       // ── Legacy handlers ────────────────────────────────────────────────
       socket.on('setup', (userData: object) => {});
       socket.on('disconnect', () => {});
       socket.on('join', async (room: { roomId: string; user: any }) => {
-        if (!room.roomId) return;
+        if (!room?.roomId || isChatReservedRoom(room.roomId)) return;
         socket.join(room.roomId);
       });
       socket.on('leave', async (room: { roomId: string; user: string }) => {
+        if (!room?.roomId || isChatReservedRoom(room.roomId)) return;
         console.info(colors.yellow(`${room.user} has left the room`) + colors.blue(` ${room.roomId}`));
         socket.leave(room.roomId);
       });
       socket.on('sendNewMessage', (room: any) => {
+        if (!room?.roomId || isChatReservedRoom(room.roomId)) return;
         // send the new message to the client
         socket.broadcast.to(room.roomId).emit('newMessage', room.message);
       });

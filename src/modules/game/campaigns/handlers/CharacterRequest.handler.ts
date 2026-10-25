@@ -100,6 +100,7 @@ export class CharacterRequestHandler extends CRUDHandler<CharacterRequestType> {
       eventBus.publish('game.campaign.character_approved', {
         campaignId: campId,
         playerId: request.player.toString(),
+        actorPlayerId: storyweaverId,
         characterId: charId,
         requestId: request._id.toString(),
       });
@@ -207,6 +208,7 @@ export class CharacterRequestHandler extends CRUDHandler<CharacterRequestType> {
       eventBus.publish('game.campaign.character_approved', {
         campaignId,
         playerId: character.player.toString(),
+        actorPlayerId: storyweaverId,
         characterId,
       });
 
@@ -257,6 +259,7 @@ export class CharacterRequestHandler extends CRUDHandler<CharacterRequestType> {
       eventBus.publish('game.campaign.character_detached', {
         campaignId,
         playerId: character.player.toString(),
+        actorPlayerId: requesterId,
         characterId: charId,
       });
     } catch (error) {

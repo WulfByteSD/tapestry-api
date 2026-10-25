@@ -5,8 +5,11 @@ import CharacterModel from '../model/CharacterModel';
 import { eventBus } from '../../../../lib/eventBus';
 import DiceRollerService from '../../utils/diceRoller/DiceRollerService';
 import { DiceRollParams } from '../../utils/diceRoller/types/DiceRollerTypes';
-import { CRUDHandler } from '../../../../utils/baseCRUD';
+import { CRUDHandler, PaginationOptions } from '../../../../utils/baseCRUD';
+import CampaignModel from '../../campaigns/model/CampaignModel';
+import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import { resolveAttackOutcome } from '../../rules';
+import { prepareDiscordRollDelivery } from '../../campaigns/handlers/DiscordRollDelivery.handler';
 
 export interface CreateRollData {
   characterId?: string | null;
@@ -67,8 +70,36 @@ export class RollHandler extends CRUDHandler<RollLogType> {
   }
 
   async createRoll(data: CreateRollData): Promise<RollResult> {
+    if (!Number.isInteger(data.faces) || data.faces < 2 || data.faces > 1000) {
+      throw new ErrorUtil('Dice faces must be a whole number from 2 to 1000', 400);
+    }
+    if (((!data.edge && !data.burden) || data.diceCount !== undefined) && (!Number.isInteger(data.diceCount) || data.diceCount! < 1 || data.diceCount! > 100)) {
+      throw new ErrorUtil('Dice count must be a whole number from 1 to 100', 400);
+    }
+    if (data.context != null && (typeof data.context !== 'string' || data.context.length > 2000)) {
+      throw new ErrorUtil('Roll context must be text of at most 2000 characters', 400);
+    }
+    if (
+      data.operations != null &&
+      (!Array.isArray(data.operations) ||
+        data.operations.length > 20 ||
+        data.operations.some(
+          (operation) => !operation || !['+', '-', '*', '/'].includes(operation.operator) || !Number.isFinite(operation.value) || Math.abs(operation.value) > 1_000_000
+        ))
+    ) {
+      throw new ErrorUtil('Roll operations must contain finite modifiers', 400);
+    }
+    for (const [label, id] of [
+      ['Character', data.characterId],
+      ['Campaign', data.campaignId],
+    ]) {
+      if (id != null && (typeof id !== 'string' || !/^[a-f\d]{24}$/i.test(id))) {
+        throw new ErrorUtil(`${label} ID is invalid`, 400);
+      }
+    }
+    let character;
     if (data.characterId) {
-      const character = await CharacterModel.findById(data.characterId);
+      character = await CharacterModel.findById(data.characterId);
 
       if (!character) {
         throw new ErrorUtil('Character not found', 404);
@@ -81,6 +112,21 @@ export class RollHandler extends CRUDHandler<RollLogType> {
       if (!data.campaignId && character.campaign) {
         data.campaignId = character.campaign.toString();
       }
+    }
+
+    let deliveryCampaign: { id: string; name: string } | null = null;
+    if (data.campaignId) {
+      const campaign = await CampaignModel.findById(data.campaignId);
+      if (!campaign) throw new ErrorUtil('Campaign not found', 404);
+      const isOwner = campaign.owner.toString() === data.playerId;
+      const member = campaign.members.find((entry) => entry.player.toString() === data.playerId);
+      if (!isOwner && !member) throw new ErrorUtil('You are not a member of this campaign', 403);
+      if (!isOwner && member?.role === 'observer') throw new ErrorUtil('Observers cannot roll in this campaign', 403);
+      if (campaign.status === 'archived') throw new ErrorUtil('Archived campaigns are read-only', 403);
+      if (character && (character.campaign?.toString() !== data.campaignId || character.status !== 'active')) {
+        throw new ErrorUtil('Choose an active character attached to this campaign', 403);
+      }
+      deliveryCampaign = { id: data.campaignId, name: campaign.name };
     }
 
     const rollParams: DiceRollParams = {
@@ -112,6 +158,7 @@ export class RollHandler extends CRUDHandler<RollLogType> {
           }
         : undefined;
 
+    const discordDelivery = await prepareDiscordRollDelivery(deliveryCampaign, data.playerId, character?.name);
     const rollLog = await RollLogModel.create({
       character: data.characterId || null,
       player: data.playerId,
@@ -126,10 +173,11 @@ export class RollHandler extends CRUDHandler<RollLogType> {
       aspectUsed: data.aspectUsed,
       attack: attackResolution ?? null,
       rolledAt: new Date(),
+      ...(discordDelivery ? { discordDelivery } : {}),
     });
 
     try {
-      eventBus.publish('game.dice.rolled', {
+      await eventBus.publish('game.dice.rolled', {
         rollId: rollLog._id,
         characterId: data.characterId,
         playerId: data.playerId,
@@ -151,5 +199,53 @@ export class RollHandler extends CRUDHandler<RollLogType> {
       breakdown: rollResult.breakdown,
       attack: attackResolution,
     };
+  }
+
+  async fetchAll(options: PaginationOptions) {
+    const results = await super.fetchAll(options);
+    // Aggregations bypass schema select:false; delivery internals are not roll API fields.
+    for (const result of results) for (const entry of result.entries) delete entry.discordDelivery;
+    return results;
+  }
+
+  async fetchAccessible(playerId: string, options: PaginationOptions, campaignId?: unknown) {
+    const player = new mongoose.Types.ObjectId(playerId);
+    if (campaignId !== undefined) {
+      if (typeof campaignId !== 'string' || !/^[a-f\d]{24}$/i.test(campaignId)) throw new ErrorUtil('Campaign ID is invalid', 400);
+      const campaign = await CampaignModel.findOne({ _id: campaignId, $or: [{ owner: player }, { 'members.player': player }] } as any)
+        .select('_id')
+        .lean();
+      if (!campaign) throw new ErrorUtil('Campaign not found or no longer accessible', 403);
+      const results = await this.fetchAll({ ...options, filters: [{ campaign: new mongoose.Types.ObjectId(campaignId) }, ...options.filters] });
+      return Promise.all(
+        results.map(async (result) => {
+          const [players, characters] = await Promise.all([
+            PlayerModel.find({ _id: { $in: result.entries.map((entry) => entry.player).filter(Boolean) } })
+              .select('displayName avatar')
+              .lean(),
+            CharacterModel.find({ _id: { $in: result.entries.map((entry) => entry.character).filter(Boolean) } })
+              .select('name')
+              .lean(),
+          ]);
+          const playerNames = new Map(players.map((entry) => [entry._id.toString(), entry]));
+          const characterNames = new Map(characters.map((entry) => [entry._id.toString(), entry.name]));
+          return {
+            ...result,
+            entries: result.entries.map((entry) => ({
+              ...entry,
+              playerDisplayName: playerNames.get(entry.player?.toString())?.displayName ?? null,
+              playerAvatar: playerNames.get(entry.player?.toString())?.avatar ?? null,
+              characterName: entry.character ? (characterNames.get(entry.character.toString()) ?? null) : null,
+            })),
+          };
+        })
+      );
+    }
+    const campaigns = await CampaignModel.find({ $or: [{ owner: player }, { 'members.player': player }] } as any).distinct('_id');
+    return this.fetchAll({
+      ...options,
+      // Keep access separate from caller filters; include/keyword options can only narrow it.
+      filters: [{ $or: [{ player }, { campaign: { $in: campaigns } }] }, ...options.filters],
+    });
   }
 }

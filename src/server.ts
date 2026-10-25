@@ -22,6 +22,7 @@ import NotificationService from './modules/notification/services/NotificationSer
 import NCampaignActivityService from './modules/game/campaigns/service/NCampaignActivityService';
 import { createContentMcpRoutes } from './modules/game/content/mcp/route';
 import { characterNoteHtml } from './middleware/characterNoteHtml';
+import { startDiscordRollWorker, stopDiscordRollWorker } from './modules/game/campaigns/utils/discordRollWorker';
 
 // Routes
 //const middlewares
@@ -123,7 +124,7 @@ if (cluster.isPrimary) {
   });
 } else {
   // Connect to database
-  db();
+  void db().then(() => startDiscordRollWorker()).catch(() => console.warn('[Discord rolls] Worker initialization failed; delivery is paused until restart.'));
   //worker process runs the server
   const server = app.listen(PORT, () => {
     console.info(`[Server]: Server running; Worker ${process.pid} running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold);
@@ -134,4 +135,8 @@ if (cluster.isPrimary) {
   const io = socket.getIO();
 
   socketConnection(io);
+  server.on('close', stopDiscordRollWorker);
+  process.once('disconnect', stopDiscordRollWorker);
+  process.once('SIGTERM', () => { stopDiscordRollWorker(); server.close(() => process.exit(0)); });
+  process.once('SIGINT', () => { stopDiscordRollWorker(); server.close(() => process.exit(0)); });
 }

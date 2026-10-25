@@ -78,6 +78,7 @@ export interface CampaignType extends mongoose.Document {
 
   // Discord roll routing config
   discord: DiscordConfig;
+  discordRequirement: 'optional' | 'required';
 
   // Optional invites
   invites: CampaignInvite[];
@@ -169,6 +170,7 @@ const CampaignSchema = new mongoose.Schema(
     display: { type: CampaignDisplaySchema, default: () => ({}) },
 
     discord: { type: DiscordConfigSchema, default: () => ({}) },
+    discordRequirement: { type: String, enum: ['optional', 'required'], default: 'optional' },
 
     invites: { type: [CampaignInviteSchema], default: [] },
 

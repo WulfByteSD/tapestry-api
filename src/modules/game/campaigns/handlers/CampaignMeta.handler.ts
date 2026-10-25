@@ -7,6 +7,7 @@ import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import { CampaignHandler } from './Campaign.handler';
 import { eventBus } from '../../../../lib/eventBus';
 import { CampaignRole } from '../model/CampaignModel';
+import { notifyCampaignChatRoleChanged } from '../chat/chatEvents';
 
 export class CampaignMetaHandler {
   constructor() {}
@@ -59,6 +60,8 @@ export class CampaignMetaHandler {
       const oldRole = member.role;
       member.role = newRole;
       await campaign.save();
+
+      await notifyCampaignChatRoleChanged(campaignId, playerId);
 
       // Emit event for role change
       eventBus.publish('game.campaign.member_role_changed', {

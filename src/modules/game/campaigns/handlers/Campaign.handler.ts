@@ -8,7 +8,9 @@ import RollLog from '../../characters/model/RollLog';
 import CampaignActivity from '../model/CampaignActivityModel';
 import CharacterRequest from '../model/CharacterRequestModel';
 import JoinRequest from '../model/JoinRequestModel';
+import { DiscordAuthorizationModel, DiscordConnectionModel, DiscordStateModel } from '../model/DiscordIntegrationModel';
 import { eventBus } from '../../../../lib/eventBus';
+import { notifyCampaignChatDeleted, notifyCampaignChatMemberJoined, revokeCampaignChatMember } from '../chat/chatEvents';
 
 export class CampaignHandler extends CRUDHandler<CampaignType> {
   constructor() {
@@ -67,6 +69,12 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
       throw new ErrorUtil('Cannot change campaign owner', 400);
     }
 
+    const updateKeys = Object.keys(data ?? {});
+    const nestedSetKeys = data?.$set && typeof data.$set === 'object' ? Object.keys(data.$set) : [];
+    if ([...updateKeys, ...nestedSetKeys].some((key) => key === 'members' || key.startsWith('members.'))) {
+      throw new ErrorUtil('Use campaign member routes to change membership or roles', 400);
+    }
+
     // TODO: Add validation for campaign data structure once schema is finalized
   }
 
@@ -95,6 +103,8 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
       }) as any;
 
       await campaign.save();
+
+      await notifyCampaignChatMemberJoined(campaignId, playerId);
 
       // Emit event for tracking
       eventBus.publish('game.campaign.member_joined', {
@@ -129,6 +139,8 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
       campaign.members = campaign.members.filter((member) => member.player.toString() !== playerId);
 
       await campaign.save();
+
+      await revokeCampaignChatMember(campaignId, playerId);
 
       // Clear campaign reference from any of the player's characters
       const CharacterModel = (await import('../../characters/model/CharacterModel')).default;
@@ -243,9 +255,14 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
         CampaignActivity.deleteMany({ campaign: id as any }),
         CharacterRequest.deleteMany({ campaign: id as any }),
         JoinRequest.deleteMany({ campaign: id as any }),
+        DiscordConnectionModel.deleteMany({ campaign: id }),
+        DiscordAuthorizationModel.deleteMany({ campaign: id }),
+        DiscordStateModel.deleteMany({ campaign: id }),
       ]);
 
       await this.Schema.findByIdAndDelete(id);
+
+      await notifyCampaignChatDeleted(campaign);
 
       eventBus.publish('game.campaign.deleted', {
         campaignId: campaign._id,

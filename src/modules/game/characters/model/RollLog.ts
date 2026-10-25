@@ -1,5 +1,46 @@
 import mongoose, { Types } from 'mongoose';
 
+export type DiscordDeliveryState = 'pending' | 'retry' | 'sending' | 'sent' | 'failed' | 'uncertain' | 'cancelled';
+export interface DiscordRollDelivery {
+  state: DiscordDeliveryState;
+  connectionId?: Types.ObjectId;
+  mappingRevision?: Date;
+  guildId?: string;
+  channelId?: string;
+  campaignName?: string;
+  playerName?: string;
+  characterName?: string;
+  createdAt: Date;
+  attempts: number;
+  nextAttemptAt?: Date;
+  claimToken?: string;
+  leaseUntil?: Date;
+  messageId?: string;
+  sentAt?: Date;
+  finishedAt?: Date;
+  lastError?: string;
+}
+
+const DiscordDeliverySchema = new mongoose.Schema({
+  state: { type: String, enum: ['pending', 'retry', 'sending', 'sent', 'failed', 'uncertain', 'cancelled'], required: true },
+  connectionId: mongoose.Schema.Types.ObjectId,
+  mappingRevision: Date,
+  guildId: String,
+  channelId: String,
+  campaignName: String,
+  playerName: String,
+  characterName: String,
+  createdAt: { type: Date, required: true },
+  attempts: { type: Number, default: 0 },
+  nextAttemptAt: Date,
+  claimToken: String,
+  leaseUntil: Date,
+  messageId: String,
+  sentAt: Date,
+  finishedAt: Date,
+  lastError: String,
+}, { _id: false });
+
 export interface AttackLogType {
   targetNumber: number;
   margin: number;
@@ -30,6 +71,7 @@ export interface RollLogType extends mongoose.Document {
   aspectUsed?: string;
 
   attack?: AttackLogType;
+  discordDelivery?: DiscordRollDelivery;
 
   rolledAt: Date;
   createdAt: Date;
@@ -74,6 +116,7 @@ const RollLogSchema = new mongoose.Schema(
     aspectUsed: { type: String, trim: true },
 
     attack: { type: AttackLogSchema, default: null },
+    discordDelivery: { type: DiscordDeliverySchema, default: undefined, select: false },
 
     rolledAt: { type: Date, required: true, default: () => new Date() },
   },
@@ -84,5 +127,6 @@ RollLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 })
 RollLogSchema.index({ character: 1, rolledAt: -1 });
 RollLogSchema.index({ campaign: 1, rolledAt: -1 });
 RollLogSchema.index({ player: 1, rolledAt: -1 });
+RollLogSchema.index({ 'discordDelivery.state': 1, 'discordDelivery.nextAttemptAt': 1 });
 
 export default mongoose.model('RollLog', RollLogSchema);

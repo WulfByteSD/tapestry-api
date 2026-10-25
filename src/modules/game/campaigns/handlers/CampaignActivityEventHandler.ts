@@ -116,18 +116,17 @@ export default class CampaignActivityEventHandler {
   /**
    * Fired when a character is approved/attached to a campaign.
    */
-  onCharacterAttached = async (event: { campaignId: string; playerId: string; characterId: string }) => {
+  onCharacterAttached = async (event: { campaignId: string; playerId: string; characterId: string; actorPlayerId?: string }) => {
     try {
-      const [player, character] = await Promise.all([PlayerModel.findById(event.playerId).lean(), CharacterModel.findById(event.characterId).lean()]);
+      const actorPlayerId = event.actorPlayerId ?? event.playerId;
+      const [player, character] = await Promise.all([PlayerModel.findById(actorPlayerId).lean(), CharacterModel.findById(event.characterId).lean()]);
 
       await CampaignActivity.create({
         campaign: event.campaignId,
         activityType: 'campaign.character_attached',
         actor: {
-          player: event.playerId,
+          player: actorPlayerId,
           playerNameSnapshot: player?.displayName,
-          character: event.characterId,
-          characterNameSnapshot: character?.name,
         },
         payload: {
           characterId: event.characterId,
@@ -142,18 +141,17 @@ export default class CampaignActivityEventHandler {
   /**
    * Fired when a character is detached from a campaign.
    */
-  onCharacterDetached = async (event: { campaignId: string; playerId: string; characterId: string }) => {
+  onCharacterDetached = async (event: { campaignId: string; playerId: string; characterId: string; actorPlayerId?: string }) => {
     try {
-      const [player, character] = await Promise.all([PlayerModel.findById(event.playerId).lean(), CharacterModel.findById(event.characterId).lean()]);
+      const actorPlayerId = event.actorPlayerId ?? event.playerId;
+      const [player, character] = await Promise.all([PlayerModel.findById(actorPlayerId).lean(), CharacterModel.findById(event.characterId).lean()]);
 
       await CampaignActivity.create({
         campaign: event.campaignId,
         activityType: 'campaign.character_detached',
         actor: {
-          player: event.playerId,
+          player: actorPlayerId,
           playerNameSnapshot: player?.displayName,
-          character: event.characterId,
-          characterNameSnapshot: character?.name,
         },
         payload: {
           characterId: event.characterId,

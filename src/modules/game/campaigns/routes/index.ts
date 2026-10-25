@@ -10,6 +10,8 @@ import characterRequestRoutes from './characterRequests';
 import campaignCharacterRoutes from './campaignCharacters';
 import activityRoutes from './activity';
 import CampaignMutationService from '../service/CampaignMutation.service';
+import chatRoutes from './chat';
+import discordRoutes from './discord';
 
 const router = express.Router();
 
@@ -45,6 +47,8 @@ router.use('/:id/members', memberRoutes);
 router.use('/:id/character-requests', characterRequestRoutes);
 router.use('/:id/characters', campaignCharacterRoutes);
 router.use('/:id/activity', activityRoutes);
+router.use('/:campaignId/chat', chatRoutes);
+router.use('/:campaignId/discord', discordRoutes);
 
 // Direct join route (not nested under /join-requests)
 router.route('/:id/join').post(joinRequestService.joinCampaign);

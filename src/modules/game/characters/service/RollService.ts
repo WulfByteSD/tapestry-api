@@ -1,10 +1,11 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../../../../types/AuthenticatedRequest';
 import asyncHandler from '../../../../middleware/asyncHandler';
 import { RollHandler, CreateRollData } from '../handlers/Roll.handler';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import error from '../../../../middleware/error';
 import { CRUDService } from '../../../../utils/baseCRUD';
+import { AdvFilters } from '../../../../utils/advFilter/AdvFilters';
 
 /**
  * RollService
@@ -73,10 +74,11 @@ export default class RollService extends CRUDService {
     }
 
     // inside createRoll:
-    const { characterId, edge, burden, diceCount, faces, keepBest, keepWorst, operations, rollType, context, aspectUsed, attack } = req.body;
+    const { characterId, campaignId, edge, burden, diceCount, faces, keepBest, keepWorst, operations, rollType, context, aspectUsed, attack } = req.body;
 
     const rollData: CreateRollData = {
-      characterId: characterId || null,
+      characterId: characterId ?? null,
+      campaignId,
       playerId: playerProfile._id.toString(),
       edge,
       burden,
@@ -104,4 +106,36 @@ export default class RollService extends CRUDService {
       return error(err, req, res);
     }
   });
+
+  public getResources = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      if (!user?._id) return res.status(401).json({ error: 'Authentication required' });
+      const player = await PlayerModel.findOne({ user: user._id } as any);
+      if (!player) return res.status(403).json({ error: 'Player profile not found' });
+      const requestedPage = Number(req.query.pageNumber);
+      const requestedLimit = Number(req.query.pageLimit);
+      const page = Number.isFinite(requestedPage) ? Math.min(1_000_000, Math.max(1, Math.floor(requestedPage) || 1)) : 1;
+      const limit = Number.isFinite(requestedLimit) ? Math.min(100, Math.max(1, Math.floor(requestedLimit) || 10)) : 10;
+      const query = [
+        ...AdvFilters.query(this.queryKeys, req.query.keyword as string),
+        ...AdvFilters.filter(req.query.includeOptions as string),
+      ].filter((entry) => Object.keys(entry).length > 0);
+      const [result] = await this.rollHandler.fetchAccessible(player._id.toString(), {
+        filters: AdvFilters.filter(req.query.filterOptions as string),
+        sort: AdvFilters.sort((req.query.sortOptions as string) || '-createdAt'),
+        query,
+        page,
+        limit,
+      }, req.query.campaignId);
+      const totalCount = result.metadata[0]?.totalCount || 0;
+      return res.status(200).json({
+        success: true,
+        payload: result.entries,
+        metadata: { page, pages: Math.ceil(totalCount / limit), totalCount, prevPage: page - 1, nextPage: page + 1 },
+      });
+    } catch (err) {
+      return error(err, req, res);
+    }
+  };
 }
