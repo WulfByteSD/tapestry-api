@@ -8,7 +8,7 @@ import mongoose from 'mongoose';
 import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import error from '../../../../middleware/error';
 
-const MAX_NOTE_LENGTH = 500;
+const MAX_NOTE_LENGTH = Infinity;
 const DEFAULT_FEED_LIMIT = 20;
 
 export default class CampaignActivityService {
