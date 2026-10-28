@@ -96,8 +96,7 @@ export class CloudinaryHandler {
    * @param publicId The Cloudinary public ID of the asset
    */
   async deleteFile(publicId: string): Promise<void> {
-    await cloudinary.uploader.destroy(publicId, {
-    });
+    await cloudinary.uploader.destroy(publicId, {});
   }
 
   /**
@@ -115,6 +114,7 @@ export class CloudinaryHandler {
 
     for (const resourceType of resourceTypes) {
       try {
+        console.log(`[CloudinaryHandler] Looking up asset for publicId: ${publicId}, resourceType: ${resourceType}`);
         const asset = await cloudinary.api.resource(publicId, { resource_type: resourceType });
         return {
           secure_url: asset.secure_url,
@@ -124,7 +124,7 @@ export class CloudinaryHandler {
           original_filename: asset.original_filename,
         };
       } catch (error: any) {
-        if (error?.http_code === 404) {
+        if ((error?.error?.http_code ?? error?.http_code) === 404) {
           continue;
         }
         throw error;

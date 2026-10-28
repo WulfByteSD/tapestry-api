@@ -4,6 +4,7 @@ import { ErrorUtil } from '../../../middleware/ErrorUtil';
 import { CRUDHandler } from '../../../utils/baseCRUD';
 import Resource from '../../library/models/Resource';
 import ProductModel, { ProductDocument, ProductFulfillment, ProductPricing } from '../models/ProductModel';
+import { normalizeProductPresentation, validateProductType } from '../helpers/productPresentation.helpers';
 import { isFreePricing, validatePricing } from '../helpers/pricing.helpers';
 
 export default class ProductHandler extends CRUDHandler<ProductDocument> {
@@ -12,6 +13,8 @@ export default class ProductHandler extends CRUDHandler<ProductDocument> {
   }
 
   protected async beforeCreate(data: any): Promise<void> {
+    if ('productType' in data) validateProductType(data.productType);
+    if ('presentation' in data) data.presentation = normalizeProductPresentation(data.presentation);
     data.key = this.normalizeRequiredKey(data.key);
     data.slug = this.normalizeRequiredSlug(data.slug || data.title);
     data.tags = this.normalizeTags(data.tags);
@@ -23,6 +26,12 @@ export default class ProductHandler extends CRUDHandler<ProductDocument> {
     const existing = await this.Schema.findById(id).lean();
     if (!existing) {
       throw new ErrorUtil('Product not found', 404);
+    }
+
+    if ('productType' in data) validateProductType(data.productType);
+    if ('presentation' in data) {
+      // Omitted media survives partial updates. Empty strings/arrays explicitly clear roles.
+      data.presentation = { ...existing.presentation, ...normalizeProductPresentation(data.presentation, existing.presentation) };
     }
 
     if ('key' in data) {

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import type { FulfillmentKind, PricingType, ProductGrantPermission, ProductStatus, ProductVisibility } from '../types/commerce.types';
+import type { FulfillmentKind, PricingType, ProductType, ProductGrantPermission, ProductStatus, ProductVisibility } from '../types/commerce.types';
 
 export interface ProductGrant {
   type: 'resource';
@@ -21,7 +21,10 @@ export interface ProductPresentationGalleryItem {
 }
 
 export interface ProductPresentation {
+  /** Legacy unassigned artwork. Retained without migration. */
   imageUrl?: string;
+  bannerImageUrl?: string;
+  productImageUrl?: string;
   coverImageUrl?: string;
   gallery?: ProductPresentationGalleryItem[];
 }
@@ -36,6 +39,7 @@ export interface ProductDocument extends mongoose.Document {
   key: string;
   slug: string;
   title: string;
+  productType?: ProductType;
   subtitle?: string;
   summary?: string;
   description?: string;
@@ -126,6 +130,8 @@ const ProductPresentationGalleryItemSchema = new mongoose.Schema<ProductPresenta
 const ProductPresentationSchema = new mongoose.Schema<ProductPresentation>(
   {
     imageUrl: { type: String, trim: true },
+    bannerImageUrl: { type: String, trim: true },
+    productImageUrl: { type: String, trim: true },
     coverImageUrl: { type: String, trim: true },
     gallery: { type: [ProductPresentationGalleryItemSchema], default: [] },
   },
@@ -150,6 +156,8 @@ const ProductSchema = new mongoose.Schema<ProductDocument>(
     key: { type: String, required: true, trim: true },
     slug: { type: String, required: true, trim: true },
     title: { type: String, required: true, trim: true },
+    // No default: old products stay unclassified until an author designates them.
+    productType: { type: String, enum: ['book', 'merchandise', 'other'] },
     subtitle: { type: String, trim: true },
     summary: { type: String, trim: true },
     description: { type: String, trim: true },

@@ -1,3 +1,5 @@
+// Independent of resource category and fulfillment. Omitted on legacy records.
+export type ProductType = 'book' | 'merchandise' | 'other';
 export type ProductStatus = 'draft' | 'published' | 'archived';
 export type ProductVisibility = 'public' | 'unlisted' | 'private';
 export type PricingType = 'free' | 'one_time';
@@ -14,6 +16,7 @@ export interface CreateProductInput {
   key: string;
   slug: string;
   title: string;
+  productType?: ProductType;
   subtitle?: string;
   summary?: string;
   description?: string;
@@ -26,7 +29,10 @@ export interface CreateProductInput {
     compareAtAmountCents?: number;
   };
   presentation?: {
+    /** Legacy unassigned artwork; never a banner or an inferred book cover. */
     imageUrl?: string;
+    bannerImageUrl?: string;
+    productImageUrl?: string;
     coverImageUrl?: string;
     gallery?: Array<{
       url: string;

@@ -158,21 +158,26 @@ export class ResourceHandler extends CRUDHandler<IResource> {
 
   async prepareConsumableResource(resourceId: string, authenticatedUserId?: string): Promise<ConsumableResourcePayload> {
     const resource = await this.Schema.findById(resourceId);
+    console.log(`Preparing consumable resource for resourceId: ${resourceId}, authenticatedUserId: ${authenticatedUserId}`);
     if (!resource) {
       throw new ErrorUtil('Resource not found', 404);
     }
-
+    console.log(`Resource found: ${resource._id.toString()}`);
     if (resource.status !== 'published') {
+      console.log(`Resource status is not published: ${resource.status}`);
       throw new ErrorUtil('Resource is not available', 403);
     }
 
     if (resource.accessPolicy === 'entitlement') {
+      console.log(`Resource access policy is entitlement`);
       if (!authenticatedUserId) {
+        console.log(`Authenticated user ID is missing for entitlement resource`);
         throw new ErrorUtil('Authentication is required to access this resource', 401);
       }
 
       const playerProfile = await PlayerModel.findOne({ user: authenticatedUserId as any });
       if (!playerProfile) {
+        console.log(`Player profile not found for authenticated user ID: ${authenticatedUserId}`);
         throw new ErrorUtil('Player profile not found', 404);
       }
 
@@ -185,17 +190,20 @@ export class ResourceHandler extends CRUDHandler<IResource> {
       });
 
       if (!entitlement) {
+        console.log(`No active entitlement found for user ID: ${playerProfile._id.toString()} and resource ID: ${resource._id.toString()}`);
         throw new ErrorUtil('You do not have access to this resource', 403);
       }
     }
 
     if (resource.accessPolicy !== 'entitlement' && resource.accessPolicy !== 'public') {
+      console.log(`Unsupported resource access policy: ${resource.accessPolicy}`);
       throw new ErrorUtil(`Unsupported resource access policy: ${resource.accessPolicy}`, 400);
     }
 
     if (resource.currentRelease.provider === 'cloudinary') {
+      console.log(`Resource provider is cloudinary`);
       const asset = await this.cloudinaryHandler.getAsset(resource.currentRelease.assetKey);
-
+      console.log(`Cloudinary asset retrieved: ${asset.secure_url}`);
       return {
         streamUrl: asset.secure_url,
         contentType: resource.currentRelease.mimeType || this.resolveContentType(resource.format, asset.format),
@@ -205,6 +213,7 @@ export class ResourceHandler extends CRUDHandler<IResource> {
     }
 
     if (resource.currentRelease.provider === 'external') {
+      console.log(`Resource provider is external`);
       return {
         streamUrl: resource.currentRelease.assetKey,
         contentType: resource.currentRelease.mimeType || this.resolveContentType(resource.format),

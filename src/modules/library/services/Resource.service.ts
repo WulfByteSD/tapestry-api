@@ -136,6 +136,7 @@ export default class ResourceService extends CRUDService {
     const upstreamResponse = await axios.get(consumableResource.streamUrl, {
       responseType: 'stream',
     });
+    console.log(`Streaming resource: ${consumableResource}`);
 
     res.setHeader('Content-Type', consumableResource.contentType || upstreamResponse.headers['content-type'] || 'application/octet-stream');
     res.setHeader('Content-Disposition', `inline; filename="${consumableResource.fileName}"`);
