@@ -12,6 +12,7 @@ import activityRoutes from './activity';
 import CampaignMutationService from '../service/CampaignMutation.service';
 import chatRoutes from './chat';
 import discordRoutes from './discord';
+import CampaignPlaySurfaceService from '../service/CampaignPlaySurface.service';
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ const service = new CampaignService();
 const joinRequestService = new JoinRequestService();
 const characterRequestService = new CharacterRequestService();
 const mutationService = new CampaignMutationService();
+const playSurfaceService = new CampaignPlaySurfaceService();
 
 router.route('/health').get((req, res) => {
   res.status(200).json({
@@ -49,6 +51,7 @@ router.use('/:id/characters', campaignCharacterRoutes);
 router.use('/:id/activity', activityRoutes);
 router.use('/:campaignId/chat', chatRoutes);
 router.use('/:campaignId/discord', discordRoutes);
+router.route('/:campaignId/play-surface').get(playSurfaceService.get).put(playSurfaceService.save);
 
 // Direct join route (not nested under /join-requests)
 router.route('/:id/join').post(joinRequestService.joinCampaign);

@@ -18,6 +18,8 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
   }
 
   protected async beforeCreate(data: any): Promise<void> {
+    // New tables always start in Tapestry; switching requires a saved connection.
+    data.playSurface = 'tapestry';
     // Validate that owner reference exists and has storyweaver role
     if (!data.owner) {
       throw new ErrorUtil('Campaign owner (storyweaver) is required', 400);
@@ -70,6 +72,10 @@ export class CampaignHandler extends CRUDHandler<CampaignType> {
     }
 
     const updateKeys = Object.keys(data ?? {});
+    const operatorKeys = updateKeys.filter((key) => key.startsWith('$')).flatMap((key) => Object.keys(data[key] ?? {}));
+    if ([...updateKeys, ...operatorKeys].some((key) => key === 'playSurface' || key.startsWith('playSurface.'))) {
+      throw new ErrorUtil('Use the campaign play-surface route to change where the table plays', 400);
+    }
     const nestedSetKeys = data?.$set && typeof data.$set === 'object' ? Object.keys(data.$set) : [];
     if ([...updateKeys, ...nestedSetKeys].some((key) => key === 'members' || key.startsWith('members.'))) {
       throw new ErrorUtil('Use campaign member routes to change membership or roles', 400);

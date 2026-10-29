@@ -1,0 +1,25 @@
+import { Router } from 'express';
+import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
+import EncounterDraftService from '../services/EncounterDraft.service';
+import EncounterLibraryService from '../services/EncounterLibrary.service';
+
+const router = Router();
+const drafts = Router({ mergeParams: true });
+const library = Router();
+const draftService = new EncounterDraftService();
+const libraryService = new EncounterLibraryService();
+drafts.use(AuthMiddleware.protect);
+drafts.route('/').get(draftService.list).post(draftService.create);
+drafts.get('/characters', draftService.characters);
+drafts.route('/:encounterId').get(draftService.get).patch(draftService.update);
+drafts.post('/:encounterId/participants', draftService.add);
+drafts.post('/:encounterId/turn-order', draftService.updateTurnOrder);
+drafts.route('/:encounterId/participants/:participantId').patch(draftService.editParticipant).delete(draftService.removeParticipant);
+drafts.post('/:encounterId/participants/:participantId/duplicate', draftService.duplicateParticipant);
+library.use(AuthMiddleware.protect);
+library.route('/').get(libraryService.list).post(libraryService.create);
+library.get('/catalog', libraryService.catalog);
+library.route('/:libraryId').get(libraryService.get).patch(libraryService.update);
+router.use('/campaigns/:campaignId/encounter-drafts', drafts);
+router.use('/encounter-library', library); 
+export default router;

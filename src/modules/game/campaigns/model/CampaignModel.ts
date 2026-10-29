@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 export type CampaignStatus = 'active' | 'archived' | 'draft';
+export type CampaignPlaySurface = 'tapestry' | 'discord';
 export type CampaignRole = 'sw' | 'co-sw' | 'player' | 'observer';
 
 export type DiscordMode = 'none' | 'webhook' | 'bot';
@@ -60,6 +61,7 @@ export interface CampaignDisplayConfig {
 export interface CampaignType extends mongoose.Document {
   name: string;
   status: CampaignStatus;
+  playSurface?: CampaignPlaySurface;
 
   owner: mongoose.Schema.Types.ObjectId; // ref Player (Storyweaver)
   members: CampaignMember[];
@@ -158,6 +160,7 @@ const CampaignSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     status: { type: String, enum: ['active', 'archived', 'draft'], default: 'draft' },
+    playSurface: { type: String, enum: ['tapestry', 'discord'], default: 'tapestry' },
 
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'Player', required: true },
     members: { type: [CampaignMemberSchema], default: [] },

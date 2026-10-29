@@ -6,10 +6,12 @@ import rollRoutes from '../characters/routes/rollRoutes';
 import contentRoutes from '../content/route/index';
 import storyweaverRoutes from '../storyweaver/routes/index';
 import adventureRoutes from '../adventures/routes/index';
+import encounterRoutes from '../encounters/routes';
 
 const router = express.Router();
 
 // Mount game subdomains
+router.use(encounterRoutes);
 router.use('/characters', characterRoutes);
 router.use('/campaigns', campaignRoutes);
 router.use('/rolls', rollRoutes);

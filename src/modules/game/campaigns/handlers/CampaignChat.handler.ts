@@ -120,6 +120,7 @@ export default class CampaignChatHandler {
 
   private async requireWritableCampaign(context: ChatContext): Promise<void> {
     if (context.campaign.status === 'archived') throw new ErrorUtil('Archived campaigns are read-only', 403);
+    if (context.campaign.playSurface === 'discord') throw new ErrorUtil('This table plays in Discord. Tapestry chat is read-only until a Storyweaver switches the play surface back.', 403);
   }
 
   private async channelFor(context: ChatContext, channelIdInput: unknown): Promise<ChatChannelDoc> {
