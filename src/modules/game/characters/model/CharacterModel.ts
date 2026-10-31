@@ -154,7 +154,7 @@ const CharacterSchema = new mongoose.Schema(
       deletedAt: { type: Date, default: null },
     },
   },
-  { timestamps: true }
+  { timestamps: true, optimisticConcurrency: true }
 );
 
 // ---- Indexes (Sheets page + search) ----

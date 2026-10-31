@@ -1,9 +1,10 @@
 import mongoose from 'mongoose';
 
-export type ChatSpeakerType = 'profile' | 'character' | 'narrator';
+export type ChatSpeakerType = 'profile' | 'character' | 'narrator' | 'combatant';
 export type ChatComposition = { action: string; dialogue: string; parts?: never } | { parts: { type: 'action' | 'dialogue'; text: string }[]; action?: never; dialogue?: never };
 
 export interface ChatMessageDoc extends mongoose.Document {
+  systemEntry?: { type: 'encounter_exchange'; exchangeId: mongoose.Types.ObjectId };
   campaign: mongoose.Types.ObjectId;
   channel: mongoose.Types.ObjectId;
   clientMessageId: string;
@@ -16,6 +17,7 @@ export interface ChatMessageDoc extends mongoose.Document {
   speaker: {
     type: ChatSpeakerType;
     character?: mongoose.Types.ObjectId | null;
+    participantId?: string | null;
     characterName?: string | null;
     avatar?: string | null;
   };
@@ -32,6 +34,7 @@ const ChatMessageSchema = new mongoose.Schema<ChatMessageDoc>(
   {
     campaign: { type: mongoose.Schema.Types.ObjectId, ref: 'Campaign', required: true, index: true },
     channel: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatChannel', required: true },
+    systemEntry: { type: new mongoose.Schema({ type: { type: String, enum: ['encounter_exchange'], required: true }, exchangeId: { type: mongoose.Schema.Types.ObjectId, required: true } }, { _id: false }), default: undefined },
     clientMessageId: { type: String, required: true, trim: true, maxlength: 128 },
     origin: { type: String, enum: ['web'], default: 'web', required: true },
     author: {
@@ -40,9 +43,10 @@ const ChatMessageSchema = new mongoose.Schema<ChatMessageDoc>(
       avatar: { type: String, default: null },
     },
     speaker: {
-      type: { type: String, enum: ['profile', 'character', 'narrator'], required: true },
+      type: { type: String, enum: ['profile', 'character', 'narrator', 'combatant'], required: true },
+      participantId: { type: String, default: null },
       character: { type: mongoose.Schema.Types.ObjectId, ref: 'Character', default: null },
-      characterName: { type: String, default: null, maxlength: 80 },
+      characterName: { type: String, default: null, maxlength: 240 },
       avatar: { type: String },
     },
     content: { type: String, required: function (this: any) { return !this.deletedAt; }, maxlength: 8000 },

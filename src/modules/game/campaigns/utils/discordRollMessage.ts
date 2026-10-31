@@ -2,7 +2,7 @@ import type { InferSchemaType } from 'mongoose';
 import type RollLogModel from '../../characters/model/RollLog';
 
 export type DiscordSavedRoll = Pick<InferSchemaType<typeof RollLogModel.schema>,
-  'character' | 'expression' | 'total' | 'allRolls' | 'keptRolls' | 'breakdown' | 'context' | 'aspectUsed' | 'rollType' | 'attack' | 'rolledAt' | 'discordDelivery'> & { _id: { toString(): string } };
+  'character' | 'actorNameSnapshot' | 'expression' | 'total' | 'allRolls' | 'keptRolls' | 'breakdown' | 'context' | 'aspectUsed' | 'rollType' | 'attack' | 'rolledAt' | 'discordDelivery'> & { _id: { toString(): string } };
 
 // Count UTF-16 units as Discord does; never cut a surrogate pair or escape pair.
 export function discordText(value: unknown, limit: number): string {
@@ -19,7 +19,7 @@ export function discordText(value: unknown, limit: number): string {
 export function discordRollMessage(roll: DiscordSavedRoll) {
   const delivery = roll.discordDelivery;
   const author = delivery?.playerName || 'Player unavailable';
-  const actor = roll.character ? delivery?.characterName || 'Character unavailable' : author;
+  const actor = roll.actorNameSnapshot || (roll.character ? delivery?.characterName || 'Character unavailable' : author);
   const fields: { name: string; value: string; inline?: boolean }[] = [];
   const add = (name: string, value: unknown, limit = 350, inline = false) => {
     if (value !== undefined && value !== null && String(value).length) fields.push({ name, value: discordText(value, limit), inline });
@@ -48,7 +48,7 @@ export function discordRollMessage(roll: DiscordSavedRoll) {
     allowed_mentions: { parse: [], replied_user: false },
     embeds: [{
       title: discordText(delivery?.campaignName || 'Campaign roll', 220),
-      description: `${discordText(actor, 180)}${roll.character ? `\nRolled by ${discordText(author, 180)}` : ''}`,
+      description: `${discordText(actor, 180)}${roll.character || roll.actorNameSnapshot ? `\nRolled by ${discordText(author, 180)}` : ''}`,
       color: 0xc9a75e,
       fields,
       footer: { text: `Tapestry · Roll ${roll._id.toString()}` },

@@ -1,6 +1,7 @@
 import socket from '../../../../utils/socket';
 import mongoose from 'mongoose';
 import ChatChannelModel from '../model/ChatChannelModel';
+import { revokeSceneAccess } from '../../encounters/utils/revokeSceneAccess';
 
 export const CHAT_USER_ROOM_PREFIX = 'chat:user:';
 export const CHAT_RESERVED_ROOM_PREFIX = 'chat:';
@@ -34,6 +35,7 @@ export async function notifyCampaignChatMemberJoined(campaignId: string, playerI
 }
 
 export async function revokeCampaignChatMember(campaignId: string, playerId: string): Promise<void> {
+  await revokeSceneAccess(campaignId,playerId);
   await ChatChannelModel.updateMany(
     { campaign: campaignId, visibility: 'private', participantPlayerIds: new mongoose.Types.ObjectId(playerId) },
     { $pull: { participantPlayerIds: new mongoose.Types.ObjectId(playerId) } }
@@ -46,6 +48,7 @@ export async function revokeCampaignChatMember(campaignId: string, playerId: str
 }
 
 export async function notifyCampaignChatRoleChanged(campaignId: string, playerId: string): Promise<void> {
+  await revokeSceneAccess(campaignId,playerId);
   emitChatToPlayers([playerId], 'chat:access:changed', {
     campaignId,
     channelIds: [],

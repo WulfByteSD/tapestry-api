@@ -8,6 +8,12 @@ import ChatChannelModel, { ChatChannelDoc, ChatMode, ChatVisibility } from '../m
 import ChatMessageModel, { ChatComposition, ChatMessageDoc, ChatSpeakerType } from '../model/ChatMessageModel';
 import ChatReadMarkerModel from '../model/ChatReadMarkerModel';
 import { emitChatToPlayers } from '../chat/chatEvents';
+import { EncounterSceneModel } from '../../encounters/models/EncounterScene.model';
+import { EncounterDraftModel } from '../../encounters/models/EncounterDraft.model';
+import { EncounterExchangeModel, exchangeDto } from '../../encounters/models/EncounterExchange.model';
+import EncounterSceneHandler, { requireOpen } from '../../encounters/handlers/EncounterScene.handler';
+import { participantNames } from '../../encounters/utils/participantNames';
+import { eligibleCharacter, sceneVisible } from '../../encounters/utils/sceneAccess';
 
 const MAX_MESSAGE_LENGTH = 8000;
 const MAX_CHANNEL_NAME_LENGTH = 80;
@@ -41,8 +47,8 @@ function requireNonEmpty(value: unknown, label: string, maxLength: number): stri
 function messageContent(body: any, speaker: ChatSpeakerType): { content: string; composition?: ChatComposition } {
   if (body.composition === undefined) return { content: requireNonEmpty(body.content, 'Message content', MAX_MESSAGE_LENGTH) };
   const input = body.composition;
-  if (speaker !== 'character' || !input || typeof input !== 'object' || Array.isArray(input)) {
-    throw new ErrorUtil('Action and dialogue must be text belonging to a character message.', 400);
+  if (!['character', 'combatant'].includes(speaker) || !input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new ErrorUtil('Action and dialogue must be text belonging to a character or combatant message.', 400);
   }
   let composition: ChatComposition;
   if ('parts' in input) {
@@ -130,6 +136,8 @@ export default class CampaignChatHandler {
     if (!canReadChannel(channel, id(context.player._id), context.role)) {
       throw new ErrorUtil('Not a member of this chat channel', 403);
     }
+    const linked=await EncounterSceneModel.findOne({channel:channel._id,createdChannel:true}).lean();
+    if(linked&&!sceneVisible(linked,context.campaign,id(context.player._id)))throw new ErrorUtil('Chat channel not found',404);
     return channel;
   }
 
@@ -147,8 +155,13 @@ export default class CampaignChatHandler {
   private async channelDto(channel: any, context: ChatContext): Promise<Record<string, any>> {
     const playerId = id(context.player._id);
     const marker = await ChatReadMarkerModel.findOne({ channel: channel._id, player: playerId }).lean();
+    const linked=await EncounterSceneModel.findOne({channel:channel._id}).lean();
+    const encounter=linked&&sceneVisible(linked,context.campaign,playerId)?await EncounterDraftModel.findById(linked.encounter).lean():null;
+    const sceneSummary=linked&&encounter?await new EncounterSceneHandler().dto(linked,context.campaign,encounter,playerId,true):undefined;
     return {
       id: id(channel._id),
+      ...(sceneSummary?{scene:sceneSummary}:{}),
+      canPost:!channel.archived&&context.campaign.status!=='archived'&&context.campaign.playSurface!=='discord'&&context.role!=='observer'&&(!linked||sceneSummary?.canPost===true),
       campaignId: id(context.campaign._id),
       name: channel.name,
       mode: channel.mode,
@@ -176,6 +189,8 @@ export default class CampaignChatHandler {
       },
       speaker: {
         type: parent.speaker.type,
+        participantId: parent.speaker.participantId ?? null,
+        avatar: parent.deletedAt ? null : parent.speaker.avatar ?? null,
         characterId: parent.speaker.character ? id(parent.speaker.character) : null,
         characterName: parent.speaker.characterName ?? null,
       },
@@ -196,8 +211,12 @@ export default class CampaignChatHandler {
 
   private async messageDto(message: any, portraits?: Map<string, string | null>): Promise<Record<string, any>> {
     const legacy = portraits ?? await this.legacyPortraits([message]);
+    // Messages are hydrated only after channel authorization; restrict the referenced exchange to the same linked channel.
+    let systemEntry:any;
+    if(message.systemEntry){const linked=await EncounterSceneModel.findOne({channel:message.channel,campaign:message.campaign}).lean();const exchange=linked?await EncounterExchangeModel.findOne({_id:message.systemEntry.exchangeId,scene:linked._id}).lean():null;systemEntry={type:'encounter_exchange',exchangeId:id(message.systemEntry.exchangeId),exchange:exchange?exchangeDto(exchange):null};}
     return {
       id: id(message._id),
+      ...(systemEntry?{systemEntry}:{}),
       campaignId: id(message.campaign),
       channelId: id(message.channel),
       clientMessageId: message.clientMessageId,
@@ -209,9 +228,10 @@ export default class CampaignChatHandler {
       },
       speaker: {
         type: message.speaker.type,
+        participantId: message.speaker.participantId ?? null,
         characterId: message.speaker.character ? id(message.speaker.character) : null,
         characterName: message.speaker.characterName ?? null,
-        avatar: message.deletedAt || message.speaker.type !== 'character' ? null : message.speaker.avatar !== undefined ? message.speaker.avatar : legacy.get(id(message.speaker.character)) ?? null,
+        avatar: message.deletedAt || !['character', 'combatant'].includes(message.speaker.type) ? null : message.speaker.avatar !== undefined ? message.speaker.avatar : legacy.get(id(message.speaker.character)) ?? null,
       },
       content: message.deletedAt ? '' : message.content,
       ...(!message.deletedAt && message.composition ? { composition: message.composition.parts ? { parts: message.composition.parts.map((part: any) => ({ type: part.type, text: part.text })) } : { action: message.composition.action, dialogue: message.composition.dialogue } } : {}),
@@ -266,7 +286,8 @@ export default class CampaignChatHandler {
   listChannels = async (req: AuthenticatedRequest): Promise<ChatHttpResult> => {
     const context = await this.context(req);
     const channels = await ChatChannelModel.find({ campaign: context.campaign._id }).sort({ createdAt: 1 }).lean();
-    const visible = channels.filter((channel) => canReadChannel(channel, id(context.player._id), context.role));
+    const linked=await EncounterSceneModel.find({channel:{$in:channels.map(channel=>channel._id)},createdChannel:true}).lean();
+    const visible = channels.filter((channel) => canReadChannel(channel, id(context.player._id), context.role)&&!linked.some(scene=>id(scene.channel)===id(channel._id)&&!sceneVisible(scene,context.campaign,id(context.player._id))));
     const payload = await Promise.all(visible.map((channel) => this.channelDto(channel, context)));
     return { status: 200, body: { success: true, payload } };
   };
@@ -300,6 +321,7 @@ export default class CampaignChatHandler {
     if (!isStoryweaver(context.role)) throw new ErrorUtil('Only campaign Storyweavers may manage chat channels', 403);
     const channel = await this.channelFor(context, req.params.channelId);
     const body = req.body ?? {};
+    if(await EncounterSceneModel.exists({channel:channel._id}))throw new ErrorUtil('Manage this linked channel through its encounter scene.',409);
     if (Object.keys(body).some((key) => !['name', 'participantPlayerIds', 'archived'].includes(key))) {
       throw new ErrorUtil('Only name, participantPlayerIds, and archived can be changed', 400);
     }
@@ -355,13 +377,14 @@ export default class CampaignChatHandler {
     if (context.role === 'observer') throw new ErrorUtil('Observers may read chat but cannot post', 403);
     const clientMessageId = requireNonEmpty(req.body.clientMessageId, 'clientMessageId', 128);
     const authorId = id(context.player._id);
-    const speaker = await this.resolveSpeaker(channel.mode, req.body.speaker, context);
+    const speaker = await this.resolveSpeaker(channel.mode, req.body.speaker, context, channel);
+    await this.requireSceneSpeaker(channel,context,speaker);
     const { content, composition } = messageContent(req.body, speaker.type);
     const replyToId = req.body.replyToMessageId == null ? null : validId(req.body.replyToMessageId, 'reply message ID');
 
     const existing = await ChatMessageModel.findOne({ channel: channel._id, 'author.player': authorId, clientMessageId }).lean();
     if (existing) {
-      if (existing.content !== content || !sameComposition(existing.composition, composition) || id(existing.replyTo ?? '') !== String(replyToId ?? '') || existing.speaker.type !== speaker.type || id(existing.speaker.character ?? '') !== id(speaker.character ?? '')) {
+      if (existing.content !== content || !sameComposition(existing.composition, composition) || id(existing.replyTo ?? '') !== String(replyToId ?? '') || existing.speaker.type !== speaker.type || id(existing.speaker.character ?? '') !== id(speaker.character ?? '') || (existing.speaker.participantId ?? null) !== (speaker.participantId ?? null)) {
         throw new ErrorUtil('clientMessageId was already used for a different message', 409);
       }
       return { status: 200, body: { success: true, payload: await this.messageDto(existing) } };
@@ -390,7 +413,7 @@ export default class CampaignChatHandler {
     } catch (error: any) {
       if (error?.code !== 11000) throw error;
       const raced = await ChatMessageModel.findOne({ channel: channel._id, 'author.player': authorId, clientMessageId }).lean();
-      if (raced && raced.content === content && sameComposition(raced.composition, composition) && id(raced.replyTo ?? '') === String(replyToId ?? '') && raced.speaker.type === speaker.type && id(raced.speaker.character ?? '') === id(speaker.character ?? '')) {
+      if (raced && raced.content === content && sameComposition(raced.composition, composition) && id(raced.replyTo ?? '') === String(replyToId ?? '') && raced.speaker.type === speaker.type && id(raced.speaker.character ?? '') === id(speaker.character ?? '') && (raced.speaker.participantId ?? null) === (speaker.participantId ?? null)) {
         return { status: 200, body: { success: true, payload: await this.messageDto(raced) } };
       }
       throw new ErrorUtil('clientMessageId was already used for a different message', 409);
@@ -412,10 +435,12 @@ export default class CampaignChatHandler {
     const messageId = validId(req.params.messageId, 'message ID');
     const message = await ChatMessageModel.findOne({ _id: messageId, campaign: context.campaign._id });
     if (!message || message.deletedAt) throw new ErrorUtil('Chat message not found', 404);
+    if(message.systemEntry)throw new ErrorUtil('Encounter transcript entries cannot be edited or removed.',403);
     const channel = await ChatChannelModel.findOne({ _id: message.channel, campaign: context.campaign._id });
     if (!channel || !canReadChannel(channel, id(context.player._id), context.role)) throw new ErrorUtil('Chat message not found', 404);
     if (channel.archived) throw new ErrorUtil('Archived channels are read-only', 403);
     if (id(message.author.player) !== id(context.player._id)) throw new ErrorUtil('You may only edit your own messages', 403);
+    await this.requireSceneSpeaker(channel,context,message.speaker);
     const edited = messageContent(req.body, message.speaker.type);
     message.content = edited.content;
     message.composition = edited.composition;
@@ -437,6 +462,7 @@ export default class CampaignChatHandler {
     const messageId = validId(req.params.messageId, 'message ID');
     const message = await ChatMessageModel.findOne({ _id: messageId, campaign: context.campaign._id });
     if (!message || message.deletedAt) throw new ErrorUtil('Chat message not found', 404);
+    if(message.systemEntry)throw new ErrorUtil('Encounter transcript entries cannot be edited or removed.',403);
     const channel = await ChatChannelModel.findOne({ _id: message.channel, campaign: context.campaign._id });
     if (!channel || !canReadChannel(channel, id(context.player._id), context.role)) throw new ErrorUtil('Chat message not found', 404);
     if (channel.archived) throw new ErrorUtil('Archived channels are read-only', 403);
@@ -488,7 +514,23 @@ export default class CampaignChatHandler {
     return [...new Set(ids)].map((playerId) => new mongoose.Types.ObjectId(playerId));
   }
 
-  private async resolveSpeaker(mode: ChatMode, input: any, context: ChatContext): Promise<{ type: ChatSpeakerType; character?: mongoose.Types.ObjectId | null; characterName?: string | null; avatar?: string | null }> {
+  private async requireSceneSpeaker(channel:any,context:ChatContext,speaker:any){
+    const scene=await EncounterSceneModel.findOne({channel:channel._id}).lean();if(!scene){if(speaker.type==='combatant')throw new ErrorUtil('Combatant speakers require a linked encounter scene.',403);return;}
+    requireOpen(scene);const playerId=id(context.player._id);
+    if(!sceneVisible(scene,context.campaign,playerId))throw new ErrorUtil('Scene access is no longer available.',403);
+    if(speaker.type==='narrator'&&isStoryweaver(context.role))return;
+    const encounter=await EncounterDraftModel.findById(scene.encounter).lean();
+    if(speaker.type==='combatant'){
+      if(!isStoryweaver(context.role)||channel.mode!=='ic')throw new ErrorUtil('Only Storyweavers may speak as scene combatants.',403);
+      const combatant=encounter?.participants.find((p:any)=>p.kind==='combatant'&&p.id===speaker.participantId&&scene.participantIds.includes(p.id)&&scene.revealedParticipantIds.includes(p.id));
+      if(!combatant)throw new ErrorUtil('Reveal and cast the combatant before speaking in this scene.',403);
+      return;
+    }
+    const participant=encounter?.participants.find((p:any)=>p.kind==='character'&&p.provenance.id===id(speaker.character)&&scene.participantIds.includes(p.id));
+    if(!participant||!await eligibleCharacter(context.campaign,id(speaker.character)))throw new ErrorUtil('Only your active cast characters may post in this scene.',403);
+  }
+
+  private async resolveSpeaker(mode: ChatMode, input: any, context: ChatContext, channel:any): Promise<{ type: ChatSpeakerType; participantId?: string | null; character?: mongoose.Types.ObjectId | null; characterName?: string | null; avatar?: string | null }> {
     if (mode === 'ooc') {
       if (input !== undefined) throw new ErrorUtil('OOC speaker is derived from the authenticated profile', 400);
       return { type: 'profile', character: null, characterName: null };
@@ -497,6 +539,18 @@ export default class CampaignChatHandler {
     if (input.type === 'narrator') {
       if (!isStoryweaver(context.role)) throw new ErrorUtil('Only Storyweavers may speak as narrator', 403);
       return { type: 'narrator', character: null, characterName: 'Narrator' };
+    }
+    if(input.type==='combatant'){
+      if(!isStoryweaver(context.role))throw new ErrorUtil('Only Storyweavers may speak as scene combatants.',403);
+      const participantId=validId(input.participantId,'combatant participant ID');
+      const scene=await EncounterSceneModel.findOne({channel:channel._id,campaign:context.campaign._id}).lean();
+      if(!scene)throw new ErrorUtil('Combatant speakers require a linked encounter scene.',403);
+      requireOpen(scene);
+      const encounter=await EncounterDraftModel.findById(scene.encounter).lean();
+      const combatant=encounter?.participants.find((p:any)=>p.kind==='combatant'&&p.id===participantId&&scene.participantIds.includes(p.id)&&scene.revealedParticipantIds.includes(p.id));
+      if(!combatant)throw new ErrorUtil('Reveal and cast the combatant before speaking in this scene.',403);
+      const names=participantNames(encounter!.participants.filter((p:any)=>scene.participantIds.includes(p.id)&&(p.kind==='character'||scene.revealedParticipantIds.includes(p.id))));
+      return {type:'combatant',participantId,character:null,characterName:names.get(participantId)??combatant.snapshot.name,avatar:combatant.snapshot.media?.portraitUrl??null};
     }
     if (input.type !== 'character') throw new ErrorUtil('Invalid IC speaker', 400);
     const characterId = validId(input.characterId, 'character ID');

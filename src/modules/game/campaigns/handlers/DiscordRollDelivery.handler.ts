@@ -73,6 +73,7 @@ export async function processNextDiscordRoll(): Promise<void> {
       if (ms > 0) await DiscordDeliveryGate.updateOne({ _id: GATE_ID, token }, { $max: { cooldownUntil: new Date(Date.now() + ms) } });
     };
     const mapped = async () => {
+      if(roll.sceneVisibility==='private')return false;
       if (!delivery.connectionId || !delivery.mappingRevision || !delivery.guildId || !delivery.channelId || !roll.campaign) return false;
       const [campaign, connection] = await Promise.all([
         CampaignModel.exists({ _id: roll.campaign, status: { $ne: 'archived' } }),

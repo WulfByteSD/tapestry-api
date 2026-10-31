@@ -69,6 +69,7 @@ export interface RollLogType extends mongoose.Document {
   rollType: string;
   context?: string;
   aspectUsed?: string;
+  actorNameSnapshot?: string;
 
   attack?: AttackLogType;
   discordDelivery?: DiscordRollDelivery;
@@ -104,6 +105,9 @@ const RollLogSchema = new mongoose.Schema(
     character: { type: Types.ObjectId, ref: 'Character', default: null, index: true },
     player: { type: Types.ObjectId, ref: 'Player', required: true, index: true },
     campaign: { type: Types.ObjectId, ref: 'Campaign', default: null, index: true },
+    scene: { type: Types.ObjectId, default: null, index: true },
+    encounter: { type: Types.ObjectId, default: null },
+    sceneVisibility: { type: String, enum: ['campaign', 'private'], default: undefined },
 
     expression: { type: String, required: true, trim: true },
     allRolls: { type: [Number], required: true },
@@ -114,6 +118,7 @@ const RollLogSchema = new mongoose.Schema(
     rollType: { type: String, required: true, default: 'custom', trim: true },
     context: { type: String, trim: true },
     aspectUsed: { type: String, trim: true },
+    actorNameSnapshot: { type: String, trim: true },
 
     attack: { type: AttackLogSchema, default: null },
     discordDelivery: { type: DiscordDeliverySchema, default: undefined, select: false },

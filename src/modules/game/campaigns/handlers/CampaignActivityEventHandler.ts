@@ -25,7 +25,7 @@ export default class CampaignActivityEventHandler {
         event.characterId ? CharacterModel.findById(event.characterId).lean() : Promise.resolve(null),
       ]);
 
-      if (!rollLog) return;
+      if (!rollLog || rollLog.sceneVisibility === 'private') return;
 
       const activityType = rollLog.attack ? 'roll.attack' : 'roll.custom';
 
@@ -60,7 +60,7 @@ export default class CampaignActivityEventHandler {
           player: event.playerId,
           playerNameSnapshot: player?.displayName,
           character: event.characterId ?? null,
-          characterNameSnapshot: character?.name,
+          characterNameSnapshot: rollLog.actorNameSnapshot ?? character?.name,
         },
         payload,
       } as any);

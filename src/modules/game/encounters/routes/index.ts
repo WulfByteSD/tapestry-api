@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
 import EncounterDraftService from '../services/EncounterDraft.service';
 import EncounterLibraryService from '../services/EncounterLibrary.service';
+import scenes, { encounterSceneService } from './scenes';
 
 const router = Router();
 const drafts = Router({ mergeParams: true });
@@ -21,5 +22,7 @@ library.route('/').get(libraryService.list).post(libraryService.create);
 library.get('/catalog', libraryService.catalog);
 library.route('/:libraryId').get(libraryService.get).patch(libraryService.update);
 router.use('/campaigns/:campaignId/encounter-drafts', drafts);
+router.use('/campaigns/:campaignId/encounters', scenes);
+router.get('/characters/:characterId/health-audit', AuthMiddleware.protect, encounterSceneService.history);
 router.use('/encounter-library', library); 
 export default router;

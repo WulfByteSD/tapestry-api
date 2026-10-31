@@ -6,6 +6,8 @@ const schema = new Schema(
     campaign: { type: Schema.Types.ObjectId, ref: 'Campaign', required: true },
     title: { type: String, required: true, trim: true, maxlength: 200 },
     notes: { type: String, default: '', maxlength: 20000 },
+    status: { type: String, enum: ['draft', 'active', 'ended'], default: 'draft' },
+    runtime: { type: Schema.Types.Mixed, default: {} },
     revision: { type: Number, default: 0, min: 0 },
     turnOrder: {
       type: Schema.Types.Mixed,

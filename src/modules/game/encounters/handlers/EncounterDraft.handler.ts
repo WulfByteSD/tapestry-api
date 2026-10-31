@@ -8,6 +8,7 @@ import { campaignAccess } from '../utils/access';
 import { catalogSnapshot, CombatantSnapshot, displayCharacter, objectId, parse, Participant, TurnOrderCommand } from '../utils/contracts';
 import { pagination, searchFilter } from './EncounterLibrary.handler';
 import EncounterTurnOrderHandler from './EncounterTurnOrder.handler';
+import { EncounterSceneModel } from '../models/EncounterScene.model';
 
 const turns = new EncounterTurnOrderHandler();
 
@@ -17,6 +18,7 @@ function draftDTO(doc: any) {
     campaignId: String(doc.campaign),
     title: doc.title,
     notes: doc.notes,
+    status: doc.status ?? 'draft',
     revision: doc.revision,
     participants: doc.participants,
     turnOrder: turns.read(doc),
@@ -37,7 +39,7 @@ export default class EncounterDraftHandler {
         { $sort: { updatedAt: -1, _id: -1 } },
         { $skip: (query.pageNumber - 1) * query.pageLimit },
         { $limit: query.pageLimit },
-        { $project: { title: 1, campaign: 1, revision: 1, createdAt: 1, updatedAt: 1, participantCount: { $size: '$participants' } } },
+        { $project: { title: 1, status: 1, campaign: 1, revision: 1, createdAt: 1, updatedAt: 1, participantCount: { $size: '$participants' } } },
       ]),
       EncounterDraftModel.countDocuments(filter),
     ]);
@@ -46,6 +48,7 @@ export default class EncounterDraftHandler {
         id: String(doc._id),
         campaignId: String(doc.campaign),
         title: doc.title,
+        status: doc.status ?? 'draft',
         revision: doc.revision,
         participantCount: doc.participantCount,
         createdAt: new Date(doc.createdAt).toISOString(),
@@ -156,6 +159,7 @@ export default class EncounterDraftHandler {
     const index = items.findIndex((item) => item.id === participantId);
     if (index < 0) throw new ErrorUtil('Participant not found.', 404);
     const item = items[index];
+    if(action!=='duplicate'&&await EncounterSceneModel.exists({encounter:id,participantIds:participantId}))throw new ErrorUtil('This participant is referenced by a scene. Manage its scene cast before changing preparation.',409);
     let turnOrder = turns.read(draft as any);
     if (action !== 'remove' && item.kind === 'character') throw new ErrorUtil('Character references cannot be edited or duplicated.', 400);
     if (action === 'remove') {

@@ -10,6 +10,7 @@ import CampaignModel from '../../campaigns/model/CampaignModel';
 import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import { resolveAttackOutcome } from '../../rules';
 import { prepareDiscordRollDelivery } from '../../campaigns/handlers/DiscordRollDelivery.handler';
+import { accessibleSceneIds } from '../../encounters/utils/sceneAccess';
 
 export interface CreateRollData {
   characterId?: string | null;
@@ -210,6 +211,8 @@ export class RollHandler extends CRUDHandler<RollLogType> {
 
   async fetchAccessible(playerId: string, options: PaginationOptions, campaignId?: unknown) {
     const player = new mongoose.Types.ObjectId(playerId);
+    const allowedScenes=await accessibleSceneIds(playerId,typeof campaignId==='string'&&mongoose.Types.ObjectId.isValid(campaignId)?campaignId:undefined);
+    options={...options,filters:[{$or:[{sceneVisibility:{$ne:'private'}},{scene:{$in:allowedScenes}}]},...options.filters]};
     if (campaignId !== undefined) {
       if (typeof campaignId !== 'string' || !/^[a-f\d]{24}$/i.test(campaignId)) throw new ErrorUtil('Campaign ID is invalid', 400);
       const campaign = await CampaignModel.findOne({ _id: campaignId, $or: [{ owner: player }, { 'members.player': player }] } as any)
@@ -235,7 +238,7 @@ export class RollHandler extends CRUDHandler<RollLogType> {
               ...entry,
               playerDisplayName: playerNames.get(entry.player?.toString())?.displayName ?? null,
               playerAvatar: playerNames.get(entry.player?.toString())?.avatar ?? null,
-              characterName: entry.character ? (characterNames.get(entry.character.toString()) ?? null) : null,
+              characterName: entry.actorNameSnapshot ?? (entry.character ? (characterNames.get(entry.character.toString()) ?? null) : null),
             })),
           };
         })

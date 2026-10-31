@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { revokeSceneAccess } from '../../encounters/utils/revokeSceneAccess';
 import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import { CRUDHandler } from '../../../../utils/baseCRUD';
 import CharacterRequestModel, { CharacterRequestType } from '../model/CharacterRequestModel';
@@ -243,6 +244,7 @@ export class CharacterRequestHandler extends CRUDHandler<CharacterRequestType> {
       }
 
       // Dual-clear
+      await revokeSceneAccess(campaignId,character.player.toString(),charId);
       character.campaign = null as any;
       await character.save();
 

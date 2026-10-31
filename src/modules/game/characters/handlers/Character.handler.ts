@@ -4,6 +4,7 @@ import CharacterModel, { CharacterType } from '../model/CharacterModel';
 import { eventBus } from '../../../../lib/eventBus';
 import { applyCharacterRules } from '../../rules';
 import calculateCharacterProtection from '../../rules/combat/calculateCharacterProtection';
+import { revokeSceneAccess } from '../../encounters/utils/revokeSceneAccess';
 
 export class CharacterHandler extends CRUDHandler<CharacterType> {
   constructor() {
@@ -79,6 +80,15 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     if (!character) {
       throw new ErrorUtil('Character not found', 404);
     }
+
+    const touchesHealth=Object.keys(data).some(key=>key==='sheet'&&(data.sheet?.resources?.hp!==undefined||data.sheet?.conditions!==undefined)||key==='sheet.resources'&&data[key]?.hp!==undefined||key==='sheet.resources.hp'||key.startsWith('sheet.resources.hp.')||key==='sheet.conditions'||key.startsWith('sheet.conditions.'));
+    if(touchesHealth){
+      const baseline=data.expectedHealthState;
+      const current=JSON.parse(JSON.stringify({hp:character.sheet.resources.hp,conditions:character.sheet.conditions}));
+      const stable=(value:any):string=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((out:any,k)=>{out[k]=v[k];return out;},{}):v);
+      if(!baseline||stable(baseline)!==stable(current))throw new ErrorUtil('Character health changed. Reload the sheet before saving health or conditions.',409);
+    }
+    delete data.expectedHealthState;
 
     // Apply partial updates to the document
     // Mongoose's set() method handles dot notation (e.g., 'sheet.aspects.might.strength': 3)
@@ -180,6 +190,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
       }
 
       const previousCampaign = character.campaign;
+      if(character.campaign)await revokeSceneAccess(String(character.campaign),String(character.player),characterId);
       character.campaign = null;
       await character.save();
 

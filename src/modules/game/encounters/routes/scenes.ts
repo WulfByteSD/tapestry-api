@@ -1,0 +1,18 @@
+import { Router } from 'express';
+import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
+import EncounterSceneService from '../services/EncounterScene.service';
+const router=Router({mergeParams:true}), service=new EncounterSceneService();
+router.use(AuthMiddleware.protect);
+router.get('/scenes',service.list);
+router.route('/:encounterId/scenes').get(service.list).post(service.create);
+router.post('/:encounterId/end',service.end);
+router.route('/:encounterId/scenes/:sceneId').get(service.get).patch(service.update);
+router.post('/:encounterId/scenes/:sceneId/lifecycle',service.lifecycle);
+router.post('/:encounterId/scenes/:sceneId/turn-order',service.turn);
+router.post('/:encounterId/scenes/:sceneId/transfer',service.transfer);
+router.post('/:encounterId/scenes/:sceneId/health/preview',service.preview);
+router.post('/:encounterId/scenes/:sceneId/health/apply',service.apply);
+router.route('/:encounterId/scenes/:sceneId/exchanges').get(service.listExchanges).post(service.attack);
+router.post('/:encounterId/scenes/:sceneId/exchanges/:exchangeId/defend',service.defend);
+export {service as encounterSceneService};
+export default router;
