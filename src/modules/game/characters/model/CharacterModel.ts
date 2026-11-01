@@ -28,6 +28,12 @@ export interface CharacterType extends mongoose.Document {
   sheet: {
     archetypeKey?: string;
     weaveLevel: number;
+    baseHP?: number;
+    hpAdjustment?: number;
+    houseRuleOverride?: boolean;
+    advancementHistory: any[];
+    weaveGrowth?: any;
+    progressionReceipts: any[];
     profile?: CharacterProfile;
     aspects: {
       might: {
@@ -94,6 +100,12 @@ const CharacterSchema = new mongoose.Schema(
     sheet: {
       archetypeKey: { type: String, trim: true },
       weaveLevel: { type: Number, default: 0, min: 0 },
+      baseHP: { type: Number, default: 12, min: 0 },
+      hpAdjustment: { type: Number },
+      houseRuleOverride: { type: Boolean, default: false },
+      advancementHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
+      weaveGrowth: { type: mongoose.Schema.Types.Mixed },
+      progressionReceipts: { type: [mongoose.Schema.Types.Mixed], default: [] },
       dtn: { type: Number, default: 10 }, // Base DTN, can be modified by rules or conditions
       profile: {
         title: { type: String, trim: true },
@@ -138,7 +150,7 @@ const CharacterSchema = new mongoose.Schema(
 
       resources: {
         hp: { type: ResourceTrackSchema, default: () => ({ current: 0, max: 0, temp: 0 }) },
-        threads: { type: ResourceTrackSchema, default: () => ({ current: 0, max: 0, temp: 0 }) },
+        threads: { type: ResourceTrackSchema, default: () => ({ current: 0, max: 3, temp: 0 }) },
         resolve: { type: ResourceTrackSchema, default: () => ({ current: 0, max: 0, temp: 0 }) },
         other: { type: Map, of: Number, default: {} },
       },

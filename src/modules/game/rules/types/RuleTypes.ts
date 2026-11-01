@@ -55,6 +55,11 @@ export interface CharacterAspects {
  * Character data subset needed for rule enforcement
  */
 export interface CharacterRuleData {
+  baseHP?: number;
+  /** Explicit character-sheet capacity, including manual base and Weave growth. */
+  threadCapacity?: number;
+  hpAdjustment?: number;
+  houseRuleOverride?: boolean;
   aspects: CharacterAspects;
   hp: ResourceTrack;
   threads: ResourceTrack;

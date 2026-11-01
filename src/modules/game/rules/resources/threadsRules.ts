@@ -1,8 +1,10 @@
 /**
  * Threads resource enforcement rules
  *
- * Threads are a special resource with a fixed range (0-5)
- * Unlike HP, threads do not scale with character attributes
+ * Core capacities default to 3-5. A character sheet can supply an explicit
+ * nonnegative capacity, independently of Aspect house-rule overrides.
+ * Standard advancement allows two increases above base; house-rule overrides
+ * also permit further guided growth, subject to safe integer validation.
  */
 
 import { CharacterRuleData, THREADS_MIN, THREADS_MAX } from '../types/RuleTypes';
@@ -30,10 +32,10 @@ function clampThreadsMax(value: number): number {
 }
 
 /**
- * Enforce threads range on all thread resource values
+ * Enforce capacity and bound current/temporary Threads to that capacity.
  *
  * Ensures that:
- * - threads.max is between 3-5 (inclusive)
+ * - threads.max uses explicit sheet capacity, or the core 3-5 default range
  * - threads.current is between 0 and threads.max
  * - threads.temp is between 0 and threads.max
  *
@@ -41,18 +43,29 @@ function clampThreadsMax(value: number): number {
  * @modifies character.threads values to be within valid range
  */
 export function enforceThreadsRange(character: CharacterRuleData): void {
+  const capacity = character.threadCapacity;
+  if (capacity !== undefined && (!Number.isSafeInteger(capacity) || capacity < 0)) throw new Error('Thread capacity must be a nonnegative whole number.');
   if (!character.threads) {
     // Initialize threads if missing
     character.threads = {
-      current: THREADS_MAX,
-      max: THREADS_MAX,
+      current: capacity === undefined ? THREADS_MAX : 0,
+      max: capacity ?? THREADS_MAX,
       temp: 0,
     };
     return;
   }
 
-  // Enforce maximum threads cap (must be between 3-5)
-  character.threads.max = clampThreadsMax(character.threads.max ?? THREADS_MAX);
+  // Validate integers before applying the chosen capacity.
+  for (const value of Object.values(character.threads)) {
+    if (typeof value === 'number' && !Number.isSafeInteger(value)) throw new Error('Threads must use whole numbers.');
+  }
+  if (capacity !== undefined) {
+    character.threads.max = capacity;
+  } else {
+    character.threads.max = character.houseRuleOverride
+      ? Math.max(0, character.threads.max ?? THREADS_MAX)
+      : clampThreadsMax(character.threads.max ?? THREADS_MAX);
+  }
 
   // Clamp current to valid range (0 to threads.max)
   character.threads.current = Math.max(0, Math.min(character.threads.max, character.threads.current ?? 0));

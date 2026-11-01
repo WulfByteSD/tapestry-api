@@ -1,3 +1,4 @@
+import WeaveAward from '../../characters/model/WeaveAward';
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../../../../types/AuthenticatedRequest';
 import { CRUDService } from '../../../../utils/baseCRUD';
@@ -116,7 +117,12 @@ export default class CharacterRequestService extends CRUDService {
 
     const characters = await CharacterModel.find({ campaign: campaignId as any });
 
-    res.status(200).json(characters);
+    const awards = await WeaveAward.find({ recipients: { $elemMatch: { character: { $in: characters.map(c => c._id) }, status: 'pending' } } }).lean();
+    const counts = new Map<string, number>();
+    for (const award of awards) for (const recipient of award.recipients) {
+      if (recipient.status === 'pending') counts.set(String(recipient.character), (counts.get(String(recipient.character)) ?? 0) + 1);
+    }
+    res.status(200).json(characters.map(character => ({ ...character.toObject({ flattenMaps: true }), derived: { pendingWeaves: counts.get(String(character._id)) ?? 0 } })));
   });
 
   /**

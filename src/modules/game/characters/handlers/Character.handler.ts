@@ -4,6 +4,9 @@ import CharacterModel, { CharacterType } from '../model/CharacterModel';
 import { eventBus } from '../../../../lib/eventBus';
 import { applyCharacterRules } from '../../rules';
 import calculateCharacterProtection from '../../rules/combat/calculateCharacterProtection';
+import { validateAndApplyGrowthRules, validateResourceTracks, patchPaths, explicitHPMax } from '../helpers/characterGrowth';
+import { initializeWeaveGrowth, applyWeaveGrowth, applyManualGrowthEdits } from '../helpers/characterWeaveGrowth';
+import { parse, manualGrowthBaseInput } from '../helpers/progressionContracts';
 import { revokeSceneAccess } from '../../encounters/utils/revokeSceneAccess';
 
 export class CharacterHandler extends CRUDHandler<CharacterType> {
@@ -12,9 +15,17 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
   }
 
   protected async beforeCreate(data: any): Promise<void> {
+    if (patchPaths(data).some(path => /^sheet\.(advancementHistory|weaveGrowth|progressionReceipts)(\.|$)/.test(path))) throw new ErrorUtil('Weave growth and history are recorded by the guided flow.', 400);
     // Validate that player reference exists
     if (!data.player) {
       throw new ErrorUtil('Player reference is required', 400);
+    }
+
+    if (data.sheet) {
+      data.sheet.advancementHistory = [];
+      data.sheet.baseHP ??= 12;
+      data.sheet.weaveLevel ??= 0;
+      if (!Number.isSafeInteger(data.sheet.weaveLevel) || data.sheet.weaveLevel < 0) throw new ErrorUtil('Weave must be a nonnegative whole number.', 400);
     }
 
     // Apply game rules (aspect validation, HP calculation, threads enforcement)
@@ -24,12 +35,17 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
         // Extract sheet data for rule validation
         const sheetData = {
           aspects: data.sheet.aspects,
-          hp: data.sheet.resources?.hp || { current: 0, max: 0, temp: 0 },
-          threads: data.sheet.resources?.threads || { current: 0, max: 0, temp: 0 },
+          baseHP: data.sheet.baseHP,
+          hpAdjustment: data.sheet.hpAdjustment,
+          houseRuleOverride: data.sheet.houseRuleOverride,
+          threadCapacity: data.sheet.resources?.threads?.max ?? 3,
+          hp: { current: 0, max: 0, temp: 0, ...data.sheet.resources?.hp },
+          threads: { current: 0, max: 3, temp: 0, ...data.sheet.resources?.threads },
           dtn: data.sheet.dtn || 10, // default DTN if not provided
         };
 
         // Apply rules
+        validateResourceTracks({ resources: { hp: sheetData.hp, threads: sheetData.threads } });
         applyCharacterRules(sheetData as any);
 
         // Apply calculated values back
@@ -62,8 +78,9 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
 
   protected async beforeUpdate(_id: string, data: any): Promise<void> {
     // Prevent changing the player owner
-    if (data.player) {
-      throw new ErrorUtil('Cannot change character owner', 400);
+    const paths = patchPaths(data);
+    if (paths.some(path => /^(player|_id|__v|createdAt|updatedAt)(\.|$)/.test(path) || /^sheet\.(advancementHistory|weaveGrowth|progressionReceipts)(\.|$)/.test(path) || path.startsWith('$'))) {
+      throw new ErrorUtil('Ownership, revision, and advancement history cannot be edited directly.', 400);
     }
   }
 
@@ -81,7 +98,14 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
       throw new ErrorUtil('Character not found', 404);
     }
 
-    const touchesHealth=Object.keys(data).some(key=>key==='sheet'&&(data.sheet?.resources?.hp!==undefined||data.sheet?.conditions!==undefined)||key==='sheet.resources'&&data[key]?.hp!==undefined||key==='sheet.resources.hp'||key.startsWith('sheet.resources.hp.')||key==='sheet.conditions'||key.startsWith('sheet.conditions.'));
+    initializeWeaveGrowth(character);
+    applyWeaveGrowth(character);
+    validateAndApplyGrowthRules(character);
+    const paths = patchPaths(data);
+    const manualBase = data.manualGrowthBase === undefined ? undefined : parse(manualGrowthBaseInput, data.manualGrowthBase);
+    const requestedBaseHP = data['sheet.baseHP'] !== undefined ? data['sheet.baseHP'] : data.sheet?.baseHP;
+    if (requestedBaseHP !== undefined && (!Number.isSafeInteger(requestedBaseHP) || requestedBaseHP < 0)) throw new ErrorUtil('Base HP must be a nonnegative whole number.', 400);
+    const touchesHealth = paths.some(key => ['sheet', 'sheet.resources', 'sheet.aspects', 'sheet.aspects.might'].includes(key) || /^sheet\.(resources\.hp|conditions|aspects\.might\.strength|hpAdjustment|baseHP)(\.|$)/.test(key) || /^manualGrowthBase\.(hpMax|aspects\.might\.strength)(\.|$)/.test(key));
     if(touchesHealth){
       const baseline=data.expectedHealthState;
       const current=JSON.parse(JSON.stringify({hp:character.sheet.resources.hp,conditions:character.sheet.conditions}));
@@ -89,45 +113,54 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
       if(!baseline||stable(baseline)!==stable(current))throw new ErrorUtil('Character health changed. Reload the sheet before saving health or conditions.',409);
     }
     delete data.expectedHealthState;
+    delete data.manualGrowthBase;
 
+    const previousSheet = character.toObject({ flattenMaps: true }).sheet;
+    const previousAdjustment = character.sheet.hpAdjustment;
+    const previousBaseHP = character.sheet.baseHP;
+    const previousHistory = character.sheet.advancementHistory;
+    const previousGrowth = character.sheet.weaveGrowth;
+    const previousReceipts = character.sheet.progressionReceipts;
+    const hadOverrides = character.sheet.houseRuleOverride;
     // Apply partial updates to the document
     // Mongoose's set() method handles dot notation (e.g., 'sheet.aspects.might.strength': 3)
     for (const [key, value] of Object.entries(data)) {
       character.set(key, value);
     }
 
-    // Apply game rules to the character's sheet
-    // This validates aspects, recalculates HP based on strength, and enforces threads range
-    try {
-      // Extract sheet data for rule validation (rules expect flat structure)
-      const sheetData = {
-        aspects: character.sheet.aspects,
-        hp: character.sheet.resources.hp,
-        threads: character.sheet.resources.threads,
-        dtn: character.sheet.dtn,
-      };
-
-      // Apply rules (validates and calculates)
-      applyCharacterRules(sheetData as any);
-
-      // Apply the rule calculations back to the document
-      character.sheet.resources.hp = sheetData.hp;
-      character.sheet.resources.threads = sheetData.threads;
-      character.sheet.dtn = sheetData.dtn;
-
-      // calculate protection for potential use in responses or events
-      const protection = calculateCharacterProtection(character);
-      character.set('sheet.resources.other.armor', protection);
-    } catch (error) {
-      throw new ErrorUtil(error instanceof Error ? error.message : 'Character validation failed', 400);
+    character.sheet.advancementHistory = previousHistory;
+    character.sheet.weaveGrowth = previousGrowth;
+    character.sheet.progressionReceipts = previousReceipts;
+    character.sheet.hpAdjustment ??= previousAdjustment;
+    if (data['sheet.baseHP'] === undefined && data.sheet?.baseHP === undefined) character.sheet.baseHP = previousBaseHP;
+    if (data['sheet.houseRuleOverride'] === undefined && data.sheet?.houseRuleOverride === undefined) character.sheet.houseRuleOverride = hadOverrides;
+    const requestedMax = explicitHPMax(data);
+    if (requestedMax !== undefined) {
+      if (!Number.isSafeInteger(requestedMax) || Number(requestedMax) < 0) throw new ErrorUtil('Maximum HP must be a nonnegative whole number.', 400);
+      character.sheet.hpAdjustment = Number(requestedMax) - character.sheet.baseHP! - character.sheet.aspects.might.strength;
     }
+    applyManualGrowthEdits(character, previousSheet, manualBase);
+    if (hadOverrides && !character.sheet.houseRuleOverride) {
+      const scores = ['might', 'finesse', 'wit', 'resolve'].flatMap(group => Object.values((character.sheet.aspects as any)[group] ?? {}));
+      if (scores.some((value: any) => typeof value === 'number' && (value < -2 || value > 4))) {
+        throw new ErrorUtil('Correct Aspects to -2 through +4 before disabling house-rule overrides.', 400);
+      }
+    }
+    validateAndApplyGrowthRules(character);
+    character.set('sheet.resources.other.armor', calculateCharacterProtection(character));
 
     // Save the document (single DB write)
-    const updated = await character.save();
+    let updated;
+    try { updated = await character.save(); }
+    catch (error: any) {
+      if (error?.name === 'VersionError') throw new ErrorUtil('Character changed. Reload before saving again.', 409);
+      throw error;
+    }
 
     // convert to plain object and apply any necessary transformations before returning
     const updatedObj = updated.toObject({
       flattenMaps: true,
+      minimize: false,
       getters: false,
       virtuals: false,
       versionKey: true,
@@ -231,7 +264,16 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
       if (!copyAllData) {
         dataToKeep.sheet = {
           ...dataToKeep.sheet,
-          aspects: [],
+          aspects: { might: { strength: 0, presence: 0 }, finesse: { agility: 0, charm: 0 }, wit: { instinct: 0, knowledge: 0 }, resolve: { willpower: 0, empathy: 0 } },
+          hpAdjustment: 0,
+          baseHP: 12,
+          houseRuleOverride: false,
+          advancementHistory: [],
+          weaveGrowth: undefined,
+          progressionReceipts: [],
+          resources: { hp: { current: 12, max: 12, temp: 0 }, threads: { current: 1, max: 3, temp: 0 }, other: {} },
+          features: [],
+          dtn: 10,
           inventory: [],
           conditions: [],
           skills: {},
@@ -318,6 +360,9 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
         throw new ErrorUtil('Character not found', 404);
       }
 
+      initializeWeaveGrowth(character);
+      applyWeaveGrowth(character);
+      validateAndApplyGrowthRules(character);
       return character;
     } catch (error) {
       if (error instanceof ErrorUtil) throw error;

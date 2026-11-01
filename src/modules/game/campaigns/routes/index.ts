@@ -1,4 +1,5 @@
 import express from 'express';
+import CharacterProgressionService from '../../characters/service/CharacterProgression.service';
 import CampaignService from '../service/CampaignService';
 import JoinRequestService from '../service/JoinRequestService';
 import CharacterRequestService from '../service/CharacterRequestService';
@@ -31,6 +32,7 @@ router.route('/health').get((req, res) => {
 
 // All campaign routes require authentication
 router.use(AuthMiddleware.protect);
+router.post('/:id/weave-awards', new CharacterProgressionService().award);
 
 // Player-specific collection routes (must come before /:id param routes)
 router.route('/join-requests/me').get(joinRequestService.getMyRequests);

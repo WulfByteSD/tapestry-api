@@ -1,9 +1,9 @@
 /**
  * HP (Health Points) calculation and adjustment rules
  *
- * Max HP Formula: 12 + Might [Strength]
+ * Max HP Formula: max(0, Base HP + Might [Strength] + adjustment)
  * - Base HP is 12
- * - Modified by the character's strength sub-aspect
+ * - Modified by Strength, Weave growth, and manual maximum-HP adjustments
  */
 
 import { CharacterRuleData, BASE_HP } from '../types/RuleTypes';
@@ -16,7 +16,13 @@ import { CharacterRuleData, BASE_HP } from '../types/RuleTypes';
  */
 export function calculateMaxHP(character: CharacterRuleData): number {
   const strength = character.aspects?.might?.strength ?? 0;
-  return BASE_HP + strength;
+  const adjustment = character.hpAdjustment ?? 0;
+  const baseHP = character.baseHP ?? BASE_HP;
+  if (!Number.isSafeInteger(baseHP) || baseHP < 0) throw new Error('Base HP must be a nonnegative whole number.');
+  if (!Number.isSafeInteger(adjustment)) throw new Error('Permanent HP adjustment must be a whole number.');
+  const maximum = Math.max(0, baseHP + strength + adjustment);
+  if (!Number.isSafeInteger(maximum)) throw new Error('Maximum HP must be a finite whole number.');
+  return maximum;
 }
 
 /**

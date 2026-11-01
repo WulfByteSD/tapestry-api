@@ -2,8 +2,7 @@
  * Aspect range validation rules
  *
  * Aspects (sub-aspects) have a legal range of -2 to +4 for direct character edits.
- * Values outside this range can exist due to status effects or other modifiers,
- * but direct character sheet modifications should be rejected.
+ * Explicit house-rule overrides lift the range; finite integer validation remains.
  */
 
 import { CharacterRuleData, AspectFamily, ASPECT_MIN, ASPECT_MAX, RuleViolation } from '../types/RuleTypes';
@@ -61,7 +60,7 @@ export function validateAspectRanges(character: CharacterRuleData): void {
         throw new Error(`Sub-aspect '${family}.${subAspect}' is missing or undefined`);
       }
 
-      if (!isAspectValueValid(value)) {
+      if (!Number.isSafeInteger(value) || (!character.houseRuleOverride && !isAspectValueValid(value))) {
         violations.push({
           field: `aspects.${family}.${subAspect}`,
           value: value,

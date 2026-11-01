@@ -8,6 +8,9 @@ import asyncHandler from '../../../../middleware/asyncHandler';
 import error from '../../../../middleware/error';
 import { AdvFilters } from '../../../../utils/advFilter/AdvFilters';
 import { buildEffectiveAbilities } from '../helpers/buildEffectiveAbilities';
+import CharacterProgressionHandler from '../handlers/CharacterProgression.handler';
+import { initializeWeaveGrowth, applyWeaveGrowth } from '../helpers/characterWeaveGrowth';
+import { validateAndApplyGrowthRules } from '../helpers/characterGrowth';
 
 type CharacterInput = {
   player: string;
@@ -201,6 +204,9 @@ export default class CharacterService extends CRUDService {
 
   private async enrichCharacterPayload(character: any) {
     if (!character) return character;
+    initializeWeaveGrowth(character);
+    applyWeaveGrowth(character);
+    validateAndApplyGrowthRules(character);
 
     const effectiveAbilities = await buildEffectiveAbilities({
       learnedAbilities: character?.sheet?.learnedAbilities ?? [],
@@ -300,6 +306,9 @@ export default class CharacterService extends CRUDService {
   public updateResource = asyncHandler(async (req: Request, res: Response, next: any): Promise<Response> => {
     try {
       this.ensureAuthenticated(req as AuthenticatedRequest, 'updateResource');
+      const progression = new CharacterProgressionHandler();
+      const player = await progression.player((req as AuthenticatedRequest).user._id);
+      await progression.owned(String(player._id), req.params.id);
 
       await this.beforeUpdate(req.params.id as string, req.body);
 

@@ -94,6 +94,7 @@ export async function buildEffectiveAbilities({ learnedAbilities = [], inventory
   }
 
   const abilityIds = [...new Set(allRefs.map((ref) => ref.abilityId).filter(Boolean))] as string[];
+  if (!allRefs.length) return [];
   const abilityKeys = [...new Set(allRefs.map((ref) => ref.abilityKey).filter(Boolean))];
 
   const definitions = await AbilityDefinitionModel.find({
