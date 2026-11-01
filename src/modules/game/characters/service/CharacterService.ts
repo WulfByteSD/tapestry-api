@@ -11,6 +11,7 @@ import { buildEffectiveAbilities } from '../helpers/buildEffectiveAbilities';
 import CharacterProgressionHandler from '../handlers/CharacterProgression.handler';
 import { initializeWeaveGrowth, applyWeaveGrowth } from '../helpers/characterWeaveGrowth';
 import { validateAndApplyGrowthRules } from '../helpers/characterGrowth';
+import { purseSnapshot } from '../helpers/characterPurse';
 
 type CharacterInput = {
   player: string;
@@ -153,7 +154,7 @@ export default class CharacterService extends CRUDService {
       return res.status(403).json({ error: 'You can only fork your own characters' });
     }
 
-    const forkedCharacter = await this.characterHandler.forkCharacter(characterId, copyAllData);
+    const forkedCharacter = await this.characterHandler.forkCharacter(characterId, copyAllData, { actorId: String(playerProfile._id), actorName: playerProfile.displayName });
 
     res.status(201).json(forkedCharacter); 
   });
@@ -218,6 +219,7 @@ export default class CharacterService extends CRUDService {
       derived: {
         ...(character?.derived ?? {}),
         effectiveAbilities,
+        purse: purseSnapshot(character),
       },
     };
   }
@@ -312,7 +314,7 @@ export default class CharacterService extends CRUDService {
 
       await this.beforeUpdate(req.params.id as string, req.body);
 
-      const result = await this.handler.update(req.params.id, req.body);
+      const result = await this.characterHandler.update(req.params.id, req.body, { actorId: String(player._id), actorName: player.displayName });
 
       await this.afterUpdate(result);
 

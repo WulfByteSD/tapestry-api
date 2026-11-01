@@ -8,6 +8,8 @@ import { validateAndApplyGrowthRules, validateResourceTracks, patchPaths, explic
 import { initializeWeaveGrowth, applyWeaveGrowth, applyManualGrowthEdits } from '../helpers/characterWeaveGrowth';
 import { parse, manualGrowthBaseInput } from '../helpers/progressionContracts';
 import { revokeSceneAccess } from '../../encounters/utils/revokeSceneAccess';
+import { purseSnapshot, assertPursePatchUnchanged } from '../helpers/characterPurse';
+import { createPurseAudit, notifyPurseUpdated, PurseAuditContext, saveWithPurseCapacityAudit, withPurseTransaction } from '../helpers/pursePersistence';
 
 export class CharacterHandler extends CRUDHandler<CharacterType> {
   constructor() {
@@ -15,6 +17,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
   }
 
   protected async beforeCreate(data: any): Promise<void> {
+    assertPursePatchUnchanged({ sheet: { purse: { baseCapacity: 3, marks: 0 } } }, data);
     if (patchPaths(data).some(path => /^sheet\.(advancementHistory|weaveGrowth|progressionReceipts)(\.|$)/.test(path))) throw new ErrorUtil('Weave growth and history are recorded by the guided flow.', 400);
     // Validate that player reference exists
     if (!data.player) {
@@ -77,6 +80,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
   }
 
   protected async beforeUpdate(_id: string, data: any): Promise<void> {
+    if (Object.prototype.hasOwnProperty.call(data, 'sheet') && (!data.sheet || typeof data.sheet !== 'object' || Array.isArray(data.sheet))) throw new ErrorUtil('Character sheet updates must contain an object.', 400);
     // Prevent changing the player owner
     const paths = patchPaths(data);
     if (paths.some(path => /^(player|_id|__v|createdAt|updatedAt)(\.|$)/.test(path) || /^sheet\.(advancementHistory|weaveGrowth|progressionReceipts)(\.|$)/.test(path) || path.startsWith('$'))) {
@@ -89,7 +93,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
    * Uses unit of work pattern: Fetch -> Apply Changes -> Validate Rules -> Save
    * This ensures rules are validated against the complete character state after applying partial updates
    */
-  async update(id: string, data: any): Promise<CharacterType | null> {
+  async update(id: string, data: any, actor?: Pick<PurseAuditContext, 'actorId' | 'actorName'>): Promise<CharacterType | null> {
     await this.beforeUpdate(id, data);
 
     // Fetch the existing character document
@@ -101,6 +105,8 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     initializeWeaveGrowth(character);
     applyWeaveGrowth(character);
     validateAndApplyGrowthRules(character);
+    const beforePurse = purseSnapshot(character);
+    assertPursePatchUnchanged(character, data);
     const paths = patchPaths(data);
     const manualBase = data.manualGrowthBase === undefined ? undefined : parse(manualGrowthBaseInput, data.manualGrowthBase);
     const requestedBaseHP = data['sheet.baseHP'] !== undefined ? data['sheet.baseHP'] : data.sheet?.baseHP;
@@ -131,6 +137,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     character.sheet.advancementHistory = previousHistory;
     character.sheet.weaveGrowth = previousGrowth;
     character.sheet.progressionReceipts = previousReceipts;
+    character.sheet.purse = { baseCapacity: beforePurse.baseCapacity, marks: beforePurse.marks };
     character.sheet.hpAdjustment ??= previousAdjustment;
     if (data['sheet.baseHP'] === undefined && data.sheet?.baseHP === undefined) character.sheet.baseHP = previousBaseHP;
     if (data['sheet.houseRuleOverride'] === undefined && data.sheet?.houseRuleOverride === undefined) character.sheet.houseRuleOverride = hadOverrides;
@@ -151,9 +158,9 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
 
     // Save the document (single DB write)
     let updated;
-    try { updated = await character.save(); }
+    try { updated = await saveWithPurseCapacityAudit(character, beforePurse, { actorId: String(character.player), ...actor, source: 'manual_weave' }); }
     catch (error: any) {
-      if (error?.name === 'VersionError') throw new ErrorUtil('Character changed. Reload before saving again.', 409);
+      if (error?.name === 'VersionError' || error?.code === 112 || error?.hasErrorLabel?.('TransientTransactionError')) throw new ErrorUtil('Character changed. Reload before saving again.', 409);
       throw error;
     }
 
@@ -167,6 +174,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
     });
 
     await this.afterUpdate(updatedObj);
+    if (beforePurse.capacity !== purseSnapshot(updated).capacity) await notifyPurseUpdated(updated);
     return updatedObj;
   }
 
@@ -247,12 +255,13 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
    * Fork a character (create a copy)
    * Sets forkedFrom reference to original character
    */
-  async forkCharacter(characterId: string, copyAllData: boolean): Promise<CharacterType> {
+  async forkCharacter(characterId: string, copyAllData: boolean, actor?: Pick<PurseAuditContext, 'actorId' | 'actorName'>): Promise<CharacterType> {
     try {
       const originalCharacter = await this.Schema.findById(characterId);
       if (!originalCharacter) {
         throw new ErrorUtil('Character not found', 404);
       }
+      purseSnapshot(originalCharacter);
 
       // Create a plain object copy
       const characterData: any = originalCharacter.toObject();
@@ -271,6 +280,7 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
           advancementHistory: [],
           weaveGrowth: undefined,
           progressionReceipts: [],
+          purse: { baseCapacity: 3, marks: 0 },
           resources: { hp: { current: 12, max: 12, temp: 0 }, threads: { current: 1, max: 3, temp: 0 }, other: {} },
           features: [],
           dtn: 10,
@@ -294,7 +304,11 @@ export class CharacterHandler extends CRUDHandler<CharacterType> {
       };
 
       // Create the new character
-      const forkedCharacter = await this.Schema.create(forkedData);
+      const forkedCharacter = copyAllData ? await withPurseTransaction(async session => {
+        const [copy] = await this.Schema.create([forkedData], { session });
+        await createPurseAudit(copy, purseSnapshot(copy), { actorId: String(copy.player), ...actor, action: 'copy_origin', source: 'character_copy', requestId: 'origin', dedupeKey: 'copy_origin' }, session);
+        return copy;
+      }) : await this.Schema.create(forkedData);
 
       // Emit event for tracking
       eventBus.publish('game.character.forked', {

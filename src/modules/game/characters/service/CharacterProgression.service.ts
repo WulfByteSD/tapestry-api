@@ -4,6 +4,7 @@ import asyncHandler from '../../../../middleware/asyncHandler';
 import { ErrorUtil } from '../../../../middleware/ErrorUtil';
 import CharacterProgressionHandler from '../handlers/CharacterProgression.handler';
 import { buildEffectiveAbilities } from '../helpers/buildEffectiveAbilities';
+import { purseSnapshot } from '../helpers/characterPurse';
 
 export default class CharacterProgressionService {
   private handler = new CharacterProgressionHandler();
@@ -19,7 +20,7 @@ export default class CharacterProgressionService {
         else if (action === 'progression') payload = await this.handler.progression(String(player._id), id);
         else {
           payload = action === 'reset' ? await this.handler.reset(String(player._id), id, req.body) : await this.handler.advance(String(player._id), id, req.body);
-          payload.derived = { effectiveAbilities: await buildEffectiveAbilities({ learnedAbilities: payload.sheet.learnedAbilities, inventory: payload.sheet.inventory }) };
+          payload.derived = { effectiveAbilities: await buildEffectiveAbilities({ learnedAbilities: payload.sheet.learnedAbilities, inventory: payload.sheet.inventory }), purse: purseSnapshot(payload) };
         }
         return res.status(200).json({ success: true, payload });
       } catch (error) {

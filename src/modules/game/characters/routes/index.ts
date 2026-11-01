@@ -1,6 +1,7 @@
 import express from 'express';
 import CharacterService from '../service/CharacterService';
 import CharacterProgressionService from '../service/CharacterProgression.service';
+import CharacterPurseService from '../service/CharacterPurse.service';
 import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
 import { getPublicCharacter } from '../handlers/PublicCharacter.handler';
 
@@ -8,6 +9,7 @@ const router = express.Router();
 
 const service = new CharacterService();
 const progression = new CharacterProgressionService();
+const purse = new CharacterPurseService();
 
 router.route('/health').get((req, res) => {
   res.status(200).json({
@@ -21,6 +23,8 @@ router.get('/:id/public', getPublicCharacter);
 
 // All other character routes require authentication
 router.use(AuthMiddleware.protect);
+router.get('/:id/purse', purse.get);
+router.post('/:id/purse/changes', purse.change);
 router.get('/:id/progression', progression.progression);
 router.post('/:id/progression/reset', progression.reset);
 router.post('/:id/advance', progression.advance);

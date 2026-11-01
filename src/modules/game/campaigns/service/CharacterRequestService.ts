@@ -7,6 +7,7 @@ import PlayerModel from '../../../profiles/player/model/PlayerModel';
 import CampaignModel from '../model/CampaignModel';
 import CharacterModel from '../../characters/model/CharacterModel';
 import asyncHandler from '../../../../middleware/asyncHandler';
+import { purseSnapshot } from '../../characters/helpers/characterPurse';
 
 export default class CharacterRequestService extends CRUDService {
   private charRequestHandler: CharacterRequestHandler;
@@ -122,7 +123,10 @@ export default class CharacterRequestService extends CRUDService {
     for (const award of awards) for (const recipient of award.recipients) {
       if (recipient.status === 'pending') counts.set(String(recipient.character), (counts.get(String(recipient.character)) ?? 0) + 1);
     }
-    res.status(200).json(characters.map(character => ({ ...character.toObject({ flattenMaps: true }), derived: { pendingWeaves: counts.get(String(character._id)) ?? 0 } })));
+    res.status(200).json(characters.map(character => {
+      const purse = purseSnapshot(character);
+      return { ...character.toObject({ flattenMaps: true }), derived: { pendingWeaves: counts.get(String(character._id)) ?? 0, purse } };
+    }));
   });
 
   /**

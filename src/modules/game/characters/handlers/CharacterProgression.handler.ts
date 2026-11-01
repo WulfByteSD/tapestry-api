@@ -10,8 +10,13 @@ import { initializeHPAdjustment, validateAndApplyGrowthRules } from '../helpers/
 import { advanceInput, awardInput, resolveInput, resetInput, parse, objectId, fingerprint } from '../helpers/progressionContracts';
 import { initializeWeaveGrowth, applyWeaveGrowth, appendWeaveGrowth, growthSnapshot, previewWeaveReset, resetWeaveGrowth } from '../helpers/characterWeaveGrowth';
 import { emitChatToPlayers } from '../../campaigns/chat/chatEvents';
+import { purseSnapshot } from '../helpers/characterPurse';
+import { saveWithPurseCapacityAudit, notifyPurseUpdated } from '../helpers/pursePersistence';
 
-const plain = (doc: any) => doc.toObject({ flattenMaps: true, minimize: false });
+const plain = (doc: any) => {
+  const purse = purseSnapshot(doc);
+  return { ...doc.toObject({ flattenMaps: true, minimize: false }), derived: { purse } };
+};
 const conflict = () => new ErrorUtil('Character or award changed. Reload and review the growth before confirming again.', 409);
 
 export default class CharacterProgressionHandler {
@@ -131,6 +136,7 @@ export default class CharacterProgressionHandler {
       applyWeaveGrowth(character);
       validateAndApplyGrowthRules(character);
       const before = plain(character).sheet;
+      const beforePurse = purseSnapshot(character);
       const sheet = character.sheet;
       const choice = input.choice;
       if (choice.kind === 'aspect') {
@@ -175,7 +181,7 @@ export default class CharacterProgressionHandler {
       const after = plain(character).sheet;
       sheet.advancementHistory.push({ requestId: input.requestId, fingerprint: hash, awardId: input.awardId, source: award ? award.campaignName : 'Player', note: input.note || award?.note || '', choice, createdAt: new Date().toISOString(), before: growthSnapshot(before), after: growthSnapshot(after) });
       sheet.progressionReceipts.push({ requestId: input.requestId, fingerprint: hash, kind: 'advance' });
-      await character.save({ session });
+      await saveWithPurseCapacityAudit(character, beforePurse, { actorId: player, source: 'advance_weave', requestId: input.requestId, dedupeKey: `advance_weave:${input.requestId}` }, session);
       if (award) {
         const recipient = award.recipients.find((r: any) => String(r.character) === id);
         recipient.status = 'applied'; recipient.resolvedAt = new Date();
@@ -193,13 +199,15 @@ export default class CharacterProgressionHandler {
         finally { await session.endSession(); }
       } else result = await perform();
     } catch (error: any) {
-      if (error?.name === 'VersionError' || error?.statusCode === 409) {
+      if (error?.name === 'VersionError' || error?.statusCode === 409 || error?.code === 112 || error?.hasErrorLabel?.('TransientTransactionError')) {
         const latest = await this.owned(player, id);
         if (replay(latest)) result = plain(latest);
         else throw conflict();
       } else throw error;
     }
     await this.notify([id]);
+    const current = await CharacterModel.findById(id).select('player campaign status').lean();
+    if (current) await notifyPurseUpdated(current);
     return result;
   }
 
@@ -216,18 +224,20 @@ export default class CharacterProgressionHandler {
     initializeWeaveGrowth(character);
     if (replay(character)) return plain(character);
     if ((character.__v ?? 0) !== input.expectedRevision) throw conflict();
+    const beforePurse = purseSnapshot(character);
     resetWeaveGrowth(character);
     character.sheet.progressionReceipts = character.sheet.progressionReceipts.map((receipt: any) => receipt.kind === 'advance' ? { ...receipt, retired: true } : receipt);
     character.sheet.progressionReceipts.push({ requestId: input.requestId, fingerprint: hash, kind: 'reset' });
     character.markModified('sheet.progressionReceipts');
-    try { await character.save(); }
+    try { await saveWithPurseCapacityAudit(character, beforePurse, { actorId: player, source: 'reset_weaves', requestId: input.requestId, dedupeKey: `reset_weaves:${input.requestId}` }); }
     catch (error: any) {
-      if (error?.name !== 'VersionError') throw error;
+      if (error?.name !== 'VersionError' && error?.code !== 112 && !error?.hasErrorLabel?.('TransientTransactionError')) throw error;
       const latest = await this.owned(player, id);
       if (replay(latest)) return plain(latest);
       throw conflict();
     }
     await this.notify([id]);
+    await notifyPurseUpdated(character);
     return plain(character);
   }
 

@@ -34,6 +34,7 @@ export interface CharacterType extends mongoose.Document {
     advancementHistory: any[];
     weaveGrowth?: any;
     progressionReceipts: any[];
+    purse?: { baseCapacity: number; marks: number };
     profile?: CharacterProfile;
     aspects: {
       might: {
@@ -106,6 +107,7 @@ const CharacterSchema = new mongoose.Schema(
       advancementHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
       weaveGrowth: { type: mongoose.Schema.Types.Mixed },
       progressionReceipts: { type: [mongoose.Schema.Types.Mixed], default: [] },
+      purse: { type: new mongoose.Schema({ baseCapacity: { type: Number, default: 3, min: 0 }, marks: { type: Number, default: 0, min: 0 } }, { _id: false }), default: undefined },
       dtn: { type: Number, default: 10 }, // Base DTN, can be modified by rules or conditions
       profile: {
         title: { type: String, trim: true },

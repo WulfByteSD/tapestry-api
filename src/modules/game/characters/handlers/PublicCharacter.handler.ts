@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import CharacterModel from '../model/CharacterModel';
 import { buildEffectiveAbilities } from '../helpers/buildEffectiveAbilities';
+import { purseSnapshot } from '../helpers/characterPurse';
 
 /** Anonymous, read-only character card. Only explicitly public notes are shared. */
 export async function getPublicCharacter(req: Request, res: Response): Promise<void> {
@@ -21,6 +22,7 @@ export async function getPublicCharacter(req: Request, res: Response): Promise<v
     }
 
     const sheet = character.sheet;
+    const purse = purseSnapshot(character);
     const learnedAbilities = sheet.learnedAbilities ?? [];
     const inventory = sheet.inventory ?? [];
     // Legacy notes without a privacy flag stay private. Select note fields explicitly
@@ -63,12 +65,13 @@ export async function getPublicCharacter(req: Request, res: Response): Promise<v
           skills: sheet.skills,
           features: sheet.features,
           resources: sheet.resources,
+          purse: sheet.purse,
           learnedAbilities,
           conditions: sheet.conditions,
           inventory,
           noteCards,
         },
-        derived: { effectiveAbilities }, 
+        derived: { effectiveAbilities, purse },
       },
     });
   } catch {
