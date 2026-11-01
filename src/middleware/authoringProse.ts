@@ -13,6 +13,12 @@ export function captureAuthoringProse(req: Request): () => void {
   };
   const route = (root: string) => (req.method === 'POST' && req.path.replace(/\/$/, '') === root) ||
     (req.method === 'PUT' && new RegExp(`^${root}/[a-f\\d]{24}/?$`, 'i').test(req.path));
+  if (route('/api/v1/game/characters')) {
+    save(['sheet', 'profile', 'bio']);
+    save(['sheet.profile', 'bio']);
+    save(['sheet', 'profile.bio']);
+    save(['sheet.profile.bio']);
+  }
   if (route('/api/v1/game/adventures/admin')) {
     save(['content', 'summary']);
     each(['content', 'sections'], path => {
