@@ -65,7 +65,7 @@ integration('encounter preparation HTTP boundaries', () => {
     for (const name of names) {
       const userId = new mongoose.Types.ObjectId();
       await Auth.collection.insertOne({ _id: userId, email: `${name}@example.test`, permissions: [], isActive: true });
-      profiles[name] = String((await new Player({ user: userId }).save())._id);
+      profiles[name] = String((await new Player({ user: userId, roles: ['owner', 'cosw', 'sw'].includes(name) ? ['player', 'storyweaver'] : ['player'] }).save())._id);
       tokens[name] = jwt.sign({ userId: String(userId) }, secret, { expiresIn: '1h' });
     }
     campaignId = String((await new Campaign({ name: 'First table', owner: profiles.owner, status: 'active', members: [

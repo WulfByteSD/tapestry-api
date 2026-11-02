@@ -14,6 +14,7 @@ router.get('/health', (req, res) => {
   });
 });
 
+router.use('/explorer', require('./explorer').default);
 router.use('/settings', settingsRoutes);
 router.use('/items', itemsRoutes);
 router.use('/skills', skillsRoutes);

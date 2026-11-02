@@ -149,7 +149,7 @@ type LoreNodeStory = {
   gmNotes?: string[];
 };
 type LinkedContentRef = {
-  type: 'combatant';
+  type: 'combatant' | 'item';
   targetId: string;
   label?: string;
 };
@@ -181,7 +181,7 @@ export interface LoreNodeType extends mongoose.Document {
 
 const LinkedContentSchema = new mongoose.Schema(
   {
-    type: { type: String, required: true, trim: true },
+    type: { type: String, required: true, trim: true, enum: ['combatant', 'item'] },
     targetId: { type: mongoose.Schema.Types.ObjectId, required: true },
     label: { type: String, trim: true, default: '' },
   },

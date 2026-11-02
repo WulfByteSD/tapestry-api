@@ -40,6 +40,8 @@ export type { LoreTreeNode, LoreNodeRef, LoreNodeDetail, FocusedLoreTreeNode };
  * Handler for Lore Tree traversal and retrieval operations
  */
 export default class LoreTreeHandler {
+  constructor(private publishedOnly = false) {}
+  private get readableStatus() { return this.publishedOnly ? 'published' : { $ne: 'archived' }; }
   /**
    * Fetch focused context for a specific lore node with lineage and descendants
    * @param nodeId - The node ID to focus on
@@ -55,7 +57,7 @@ export default class LoreTreeHandler {
 
     const focusNode = await LoreNodeModel.findOne({
       _id: normalizedNodeId,
-      status: { $ne: 'archived' },
+      status: this.readableStatus,
     }).lean();
 
     if (!focusNode) {
@@ -67,21 +69,21 @@ export default class LoreTreeHandler {
 
     // Populate relations for the focus node
     if (normalizedFocus.relations && normalizedFocus.relations.length > 0) {
-      normalizedFocus.relations = await populateRelationTargets(normalizedFocus.relations as any[], normalizedFocus.settingKey);
+      normalizedFocus.relations = await populateRelationTargets(normalizedFocus.relations as any[], normalizedFocus.settingKey, this.publishedOnly);
     }
 
     const [ancestorDocs, descendantDocs, groupedCounts] = await Promise.all([
       ancestorIds.length
         ? LoreNodeModel.find({
             _id: { $in: ancestorIds.map((id) => new mongoose.Types.ObjectId(id)) },
-            status: { $ne: 'archived' },
+            status: this.readableStatus,
           })
             .sort({ depth: 1, sortOrder: 1, name: 1 })
             .lean()
         : [],
       LoreNodeModel.find({
         settingKey: normalizedFocus.settingKey,
-        status: { $ne: 'archived' },
+        status: this.readableStatus,
         ancestorIds: normalizedNodeId as any,
         depth: { $lte: normalizedFocus.depth + descendantDepth },
       })
@@ -90,7 +92,7 @@ export default class LoreTreeHandler {
       LoreNodeModel.aggregate([
         {
           $match: {
-            status: { $ne: 'archived' },
+            status: this.readableStatus,
             $or: [
               { _id: normalizedNodeId },
               { _id: { $in: ancestorIds.map((id) => new mongoose.Types.ObjectId(id)) } },
@@ -115,7 +117,7 @@ export default class LoreTreeHandler {
       {
         $match: {
           parentId: { $in: includedIds },
-          status: { $ne: 'archived' },
+          status: this.readableStatus,
         },
       },
       {
@@ -139,7 +141,7 @@ export default class LoreTreeHandler {
 
     // Ensure relations are populated on the focus tree node as well
     if (focusTreeNodeBase.relations && focusTreeNodeBase.relations.length > 0) {
-      focusTreeNodeBase.relations = await populateRelationTargets(focusTreeNodeBase.relations as any[], focusTreeNodeBase.settingKey);
+      focusTreeNodeBase.relations = await populateRelationTargets(focusTreeNodeBase.relations as any[], focusTreeNodeBase.settingKey, this.publishedOnly);
     }
 
     const focusTreeNode = {
@@ -215,7 +217,7 @@ export default class LoreTreeHandler {
   async fetchTreeForSetting(settingKey: string): Promise<LoreTreeNode[]> {
     const entries = await LoreNodeModel.find({
       settingKey,
-      status: { $ne: 'archived' },
+      status: this.readableStatus,
     })
       .sort({ depth: 1, sortOrder: 1, name: 1 })
       .lean();
@@ -258,7 +260,7 @@ export default class LoreTreeHandler {
 
     const children = await LoreNodeModel.find({
       parentId: normalizedParentId as any,
-      status: { $ne: 'archived' },
+      status: this.readableStatus,
     })
       .sort({ sortOrder: 1, name: 1 })
       .lean();
@@ -271,7 +273,7 @@ export default class LoreTreeHandler {
             {
               $match: {
                 parentId: { $in: childIds },
-                status: { $ne: 'archived' },
+                status: this.readableStatus,
               },
             },
             {
@@ -298,7 +300,7 @@ export default class LoreTreeHandler {
     const node = await LoreNodeModel.findOne({
       settingKey,
       key,
-      status: { $ne: 'archived' },
+      status: this.readableStatus,
     }).lean();
 
     if (!node) {
@@ -308,17 +310,18 @@ export default class LoreTreeHandler {
     const normalizedNode = normalizeNode(node as LoreNodeType);
 
     const [parent, ancestors, children] = await Promise.all([
-      normalizedNode.parentId ? LoreNodeModel.findById(normalizedNode.parentId).select('_id key name kind status').lean() : null,
+      normalizedNode.parentId ? LoreNodeModel.findOne({ _id: normalizedNode.parentId, ...(this.publishedOnly ? { status: 'published' } : {}) }).select('_id key name kind status').lean() : null,
       normalizedNode.ancestorIds.length
         ? LoreNodeModel.find({
             _id: { $in: normalizedNode.ancestorIds },
+            ...(this.publishedOnly ? { status: 'published' } : {}),
           })
             .select('_id key name kind status')
             .lean()
         : [],
       LoreNodeModel.find({
         parentId: new mongoose.Types.ObjectId(normalizedNode._id) as any,
-        status: { $ne: 'archived' },
+        status: this.readableStatus,
       })
         .sort({ sortOrder: 1, name: 1 })
         .select('_id key name kind status settingKey parentId ancestorIds depth sortOrder tags summary body relations meta createdAt updatedAt target')

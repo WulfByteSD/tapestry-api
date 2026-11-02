@@ -53,7 +53,8 @@ export async function redactReferences(actor: Actor, type: ContentType, doc: any
       'combatants',
       (result.linkedContent || []).filter((r: any) => r.type === 'combatant').map((r: any) => r.targetId)
     );
-    if ('linkedContent' in result) result.linkedContent = (result.linkedContent || []).filter((r: any) => r.type === 'combatant' && combatants.has(r.targetId));
+    const items = await visibleIds('items', (result.linkedContent || []).filter((r: any) => r.type === 'item').map((r: any) => r.targetId));
+    if ('linkedContent' in result) result.linkedContent = (result.linkedContent || []).filter((r: any) => r.type === 'combatant' ? combatants.has(r.targetId) : r.type === 'item' && items.has(r.targetId));
   }
   if (type === 'combatants' && result.loreNodeId && !(await visibleIds('lore', [result.loreNodeId])).has(result.loreNodeId)) result.loreNodeId = null;
   if (result.grantedAbilities?.length) {

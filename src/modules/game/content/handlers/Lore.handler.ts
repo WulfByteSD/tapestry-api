@@ -1,3 +1,4 @@
+import { validateLinkedContent } from '../util/validateLinkedContent';
 import mongoose from 'mongoose';
 import { CRUDHandler } from '../../../../utils/baseCRUD';
 import LoreNodeModel, { LoreNodeType } from '../model/LoreNodeModel';
@@ -13,6 +14,10 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
     super(LoreNodeModel);
   }
 
+  protected async beforeCreate(data: any): Promise<void> {
+    if (data.linkedContent !== undefined) await validateLinkedContent(data.settingKey, data.linkedContent);
+  }
+
   protected async beforeUpdate(id: string, data: any): Promise<void> {
     const currentNode = await this.Schema.findById(id).select('_id settingKey key parentId ancestorIds depth');
 
@@ -26,13 +31,19 @@ export default class LoreHandler extends CRUDHandler<LoreNodeType> {
       throw new ErrorUtil('settingKey is required for lore update', 400);
     }
 
+    if (data.linkedContent !== undefined) await validateLinkedContent(effectiveSettingKey, data.linkedContent);
+    else if (effectiveSettingKey !== currentNode.settingKey) {
+      const existing = await this.Schema.findById(id).select('linkedContent').lean();
+      await validateLinkedContent(effectiveSettingKey, existing?.linkedContent || []);
+    }
     data.settingKey = effectiveSettingKey;
 
     if (typeof data.key === 'string') {
       data.key = data.key.trim().toLowerCase();
     }
 
-    if (Object.prototype.hasOwnProperty.call(data, 'parentId') || Object.prototype.hasOwnProperty.call(data, 'settingKey')) {
+    if (Object.prototype.hasOwnProperty.call(data, 'parentId') || effectiveSettingKey !== currentNode.settingKey) {
+      if (!Object.prototype.hasOwnProperty.call(data, 'parentId')) data.parentId = currentNode.parentId;
       await loreHierarchyService.applyHierarchyFields(data, {
         currentNodeId: id,
         fallbackSettingKey: effectiveSettingKey,

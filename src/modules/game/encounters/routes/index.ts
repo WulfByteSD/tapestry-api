@@ -1,3 +1,4 @@
+import { requireContentStoryweaver } from '../../content/util/contentReader';
 import { Router } from 'express';
 import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
 import EncounterDraftService from '../services/EncounterDraft.service';
@@ -19,7 +20,7 @@ drafts.route('/:encounterId/participants/:participantId').patch(draftService.edi
 drafts.post('/:encounterId/participants/:participantId/duplicate', draftService.duplicateParticipant);
 library.use(AuthMiddleware.protect);
 library.route('/').get(libraryService.list).post(libraryService.create);
-library.get('/catalog', libraryService.catalog);
+library.get('/catalog', requireContentStoryweaver, libraryService.catalog);
 library.route('/:libraryId').get(libraryService.get).patch(libraryService.update);
 router.use('/campaigns/:campaignId/encounter-drafts', drafts);
 router.use('/campaigns/:campaignId/encounters', scenes);

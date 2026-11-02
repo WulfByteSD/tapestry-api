@@ -2,10 +2,12 @@ import express from 'express';
 import { AuthMiddleware } from '../../../../middleware/AuthMiddleware';
 import CombatantService from '../service/CombatantService';
 
+import { legacyContentReader } from '../service/ContentReader.service';
 const router = express.Router();
 const service = new CombatantService();
 
 router.use(AuthMiddleware.protect);
+router.use(legacyContentReader('combatant'));
 
 router.get('/', service.getResources);
 router.get('/origins', AuthMiddleware.authorizeRoles(['admin']) as any, service.getOrigins);

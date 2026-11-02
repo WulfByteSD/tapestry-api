@@ -83,7 +83,7 @@ export function toRef(node: Partial<LoreNodeType> | null | undefined): LoreNodeR
 /**
  * Populate relation targets with node context
  */
-export async function populateRelationTargets(relations: Array<{ targetId: string; [key: string]: any }>, settingKey?: string): Promise<Array<any>> {
+export async function populateRelationTargets(relations: Array<{ targetId: string; [key: string]: any }>, settingKey?: string, publishedOnly = false): Promise<Array<any>> {
   if (!relations || relations.length === 0) {
     return [];
   }
@@ -96,7 +96,7 @@ export async function populateRelationTargets(relations: Array<{ targetId: strin
 
   const query: any = {
     _id: { $in: targetIds },
-    status: { $ne: 'archived' },
+    status: publishedOnly ? 'published' : { $ne: 'archived' },
   };
 
   if (settingKey) {

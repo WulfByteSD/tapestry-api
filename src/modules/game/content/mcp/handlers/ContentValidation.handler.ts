@@ -37,8 +37,8 @@ async function checkReferences(actor: Actor, type: ContentType, doc: any, sessio
     for (const id of doc.ancestorIds || []) await reference(actor, 'lore', { _id: id, settingKey: doc.settingKey }, session);
     for (const rel of doc.relations || []) await reference(actor, 'lore', { _id: rel.targetId, key: rel.targetKey, settingKey: doc.settingKey }, session);
     for (const linked of doc.linkedContent || []) {
-      if (linked.type !== 'combatant') throw new McpError('validation', 'Only combatant links are supported.');
-      await reference(actor, 'combatants', { _id: linked.targetId }, session);
+      if (!['combatant', 'item'].includes(linked.type)) throw new McpError('validation', 'Only item and combatant links are supported.');
+      await reference(actor, linked.type === 'item' ? 'items' : 'combatants', { _id: linked.targetId, settingKeys: { $in: linked.type === 'item' ? [doc.settingKey, 'shared'] : [doc.settingKey] } }, session);
     }
   }
 }

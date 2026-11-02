@@ -26,7 +26,7 @@ export default class LinkedContentService extends CRUDService {
         });
       }
 
-      const results = await this.handler.searchLinkedOptions({ settingKey, query: String(query || '').trim() });
+      const results = await this.handler.searchLinkedOptions({ type, settingKey, query: String(query || '').trim() });
 
       return res.status(200).json({
         success: true,
