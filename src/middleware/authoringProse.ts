@@ -33,6 +33,11 @@ export function captureAuthoringProse(req: Request): () => void {
     each(['attacks'], path => save([...path, 'notes']));
     each(['abilities'], path => save([...path, 'text']));
   }
+  if (route('/api/v1/game/content/lore')) {
+    save(['summary']);
+    save(['body']);
+    save(['meta', 'world', 'timelineNote']);
+  }
   return () => values.forEach(({ path, value }) => {
     const parent = read(path.slice(0, -1)); if (parent && typeof parent === 'object') parent[path[path.length - 1]] = value;
   });
